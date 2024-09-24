@@ -1,0 +1,25 @@
+first to 25 pts
+play rounds
+11 points each round
+
+pts:
+ace: 1
+10d: 3
+2sp: 2
+most cards: 1
+most spades:1
+
+start: 3 cards per player, 3 cards in middle, right of dealer starts
+
+turn:
+pick up a pair, as many matching card, 
+pick a card to make pair, 
+if you cant pick any cards, you have to play a card:
+    play -> creates new card with sum, if you have the sum card, and its not a pair already, you can combine cards into your play
+    throw -> into pile
+
+you can add cards in the pile
+
+dealer deals when everyone runs out
+
+final round = dealer doesnt have enough for another one. if it can give everyone an extra card it does
