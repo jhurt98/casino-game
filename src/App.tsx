@@ -1,14 +1,13 @@
-import './App.css'
-import Card from './Card.tsx'
+import "./App.css";
+import Game from "./Game.tsx";
 
 function App() {
-
-  return (
-    <>
-    sigma
-    <Card/>
-    </>
-  )
+    return (
+        <div className="game">
+            <h1>CASINO</h1>
+            <Game />
+        </div>
+    );
 }
 
-export default App
+export default App;

@@ -1,68 +1,56 @@
 #root {
-  max-width: 1280px;
-  margin: 0 auto;
-  padding: 2rem;
-  text-align: center;
-}
-
-.logo {
-  height: 6em;
-  padding: 1.5em;
-  will-change: filter;
-  transition: filter 300ms;
-}
-.logo:hover {
-  filter: drop-shadow(0 0 2em #646cffaa);
-}
-.logo.react:hover {
-  filter: drop-shadow(0 0 2em #61dafbaa);
-}
-
-@keyframes logo-spin {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-@media (prefers-reduced-motion: no-preference) {
-  a:nth-of-type(2) .logo {
-    animation: logo-spin infinite 20s linear;
-  }
+    max-width: 1280px;
+    margin: 0 auto;
 }
 
 .card {
-  padding: 2em;
+    padding: 2em;
 }
 
-.read-the-docs {
-  color: #888;
+.cards {
+    height: 100%;
+    width: 100%;
+    position: absolute;
+    border: 2px, dashed, white;
+    display: flex;
+    flex-wrap: wrap;
+}
+
+.game {
+    height: 100%;
+    width: 100%;
+    position: absolute;
+    border: 2px, dashed, white;
 }
 
 .playingCard {
-  width: 250px;
-  height: 350px;
-  border: 1px solid red;
-  display: flex;
-  justify-content: space-between;
-  flex-direction: column;
-  background-color: white;
-  color: black;
-  position: absolute;
+    max-width: 100px;
+    max-height: 140px;
+    border: 1px dashed blueviolet;
+    display: flex;
+    justify-content: space-between;
+    flex-direction: column;
+    background-color: white;
+    color: black;
 }
 
 .bottom {
-  align-self: flex-end;
+    align-self: flex-end;
+    transform: rotate(180deg);
+    transform: rotate(180deg);
 }
 
 .content {
-  display: flex;
-  align-items: center;
+    display: flex;
+    align-items: center;
 }
 
 p {
-  margin: 0px;
-  font-size: 24px;
+    margin: 0px;
+    font-size: 24px;
+}
+
+h1 {
+    text-align: center;
+    font-family: monospace;
 }
