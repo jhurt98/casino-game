@@ -1,6 +1,5 @@
 #root {
-    max-width: 1280px;
-    margin: 0 auto;
+    max-width: 940px;
 }
 
 .card {
@@ -17,10 +16,12 @@
 }
 
 .game {
-    height: 100%;
-    width: 100%;
-    position: absolute;
+    height: 800px;
+    width: 90%;
+    margin: 0 auto;
     border: 2px, dashed, white;
+    display: flex;
+    flex-direction: column;
 }
 
 .playingCard {

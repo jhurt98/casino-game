@@ -4,21 +4,26 @@
     margin-top: 50px;
     border: 1px red dashed;
     background-color: darkgreen;
-    align-self: center;
 }
 
 .playerHand {
     display: flex;
     padding: 16px;
     border: 1px green dashed;
-    align-self: center;
     background-color: maroon;
 }
 
+.playerPile {
+    display: flex;
+    padding: 16px;
+    border: 1px green dashed;
+    background-color: sienna;
+}
+
 .board {
-    height: 100%;
     display: flex;
     flex-direction: column;
     justify-content: space-around;
-
+    flex-grow: 1;
+    align-items: center;
 }

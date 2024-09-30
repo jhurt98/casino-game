@@ -48,15 +48,12 @@ function getValue(suit: string, rank: string) {
     if (suit == "spades" && rank == "2") {
         return 2;
     }
-
     if (suit == "diamonds" && rank == "10") {
         return 3;
     }
-
     if (rank == "A") {
         return 1;
     }
-
     return 0;
 }
 
@@ -93,7 +90,6 @@ function deal(
     players: Array<Player>,
     currentTable: Array<Card>,
 ) {
-    console.log("dealing");
     let totalCards = 0;
     const cardPerPerson = Math.floor(deck.length / players.length);
     if (cardPerPerson >= 3) {
@@ -121,9 +117,6 @@ function createPlayerComponents(players: Array<Player>, currentMove: number) {
 }
 
 const MAX_POINTS = 25;
-let i = 0;
-const allPlayers = makeAllPlayers();
-let currentTable: Array<Card>  = [];
 function Game() {
     const [allPlayers, setAllPlayers] = useState<Array<Player>>([]);
     const [currentTable, setTable] = useState<Array<Card>>([]);
@@ -131,7 +124,9 @@ function Game() {
     const [currentDeck, setCurrentDeck] = useState<Array<Card>>([]);
     const [selectedCards, setSelectedCards] = useState<Array<Card>>([]);
     const [selectingCards, setSelectingCards] = useState<boolean>(false);
-
+    
+    const n = allPlayers.length;
+    const currentPlayer = allPlayers[currentMove%n];
 
     function startMatch() {
         const newPlayers = makeAllPlayers();
@@ -142,16 +137,37 @@ function Game() {
         setCurrentDeck([...deck]);
     }
 
-    function createCardComponents(cards: Array<Card>) {
+    function createCardComponents(cards: Array<Card>, selectable: boolean) {
         return cards.map((card) => { 
-                const style = selectingCards ? { cursor: "pointer" } : {};
+                selectable = selectable && selectingCards;
+                const style = selectable ? { cursor: "pointer" } : {};
                 const handleSelect = () => {
+                    if (selectedCards.includes(card)) return;
                     setSelectedCards([...selectedCards, card]);
                 }
                 return (
-                    <div style={style} key={card.suit+card.rank} onClick={selectingCards ? handleSelect : undefined}> { createCardComponent(card) } </div>
+                    <div style={style} key={card.suit+card.rank} onClick={selectable ? handleSelect : undefined}> { createCardComponent(card) } </div>
                 );
-            });
+        });
+    }
+
+    function handleAddToPile() {
+        const table = currentTable;
+        for (const card of selectedCards) {
+            let i = table.findIndex((c) => card === c);
+            if (i !== -1) {
+                table.splice(i, 1);
+            }
+
+            i = currentPlayer.hand.findIndex((c) => card === c);
+            if (i !== -1) {
+                currentPlayer.hand.splice(i,1);
+            }
+            currentPlayer.pile.push(card);
+        }
+        setSelectedCards([]);
+        setAllPlayers([...allPlayers]);
+        setTable([...table]);
     }
 
     const winner = allPlayers.find(player => player.points >= MAX_POINTS);
@@ -167,22 +183,27 @@ function Game() {
         }
     }
 
-    const currentHand = allPlayers.length > 0 ? allPlayers[currentMove%allPlayers.length].hand : [];
-    const selectedCardsContainer = <div className="selectedCards"> { createCardComponents(selectedCards) } </div>;
+    const currentHand = currentPlayer ? currentPlayer.hand : [];
+    const currentPile = currentPlayer ? currentPlayer.pile : [];
+    const selectedCardsContainer = <div style={{display: "flex"}}>{createCardComponents(selectedCards, false)}</div>;
     return (
         <div className="board">
             <div style={{alignSelf: "center"}}>
                 <h3 style={{color: "pink"}}> {status} </h3>
                 <div> { createPlayerComponents(allPlayers, currentMove) } </div>
             </div>
-            <div className="field"> { createCardComponents(currentTable) }</div>
-            <div className="playerHand"> { createCardComponents(currentHand) }</div>
+            <div className="field"> { createCardComponents(currentTable,true) }</div>
+            <div style={{display:"flex"}}>
+            <div className="playerHand"> { createCardComponents(currentHand,true) }</div>
+            <div className="playerPile"> { createCardComponents(currentPile,false)}</div>
+            </div>
             <div>
                 <button onClick={startMatch}>Start Match</button>
                 <button onClick={()=> { setCurrentMove(currentMove+1) }}>Next Move</button>
                 { allPlayers.length > 0 ? <button onClick={()=> { setSelectingCards(!selectingCards) }}>Select Cards to Pile</button> : null }
                 { selectingCards ? <div> Selecting </div> : null }
                 { selectingCards ? selectedCardsContainer : null }
+                { selectingCards && selectedCards.length > 0 ? <button onClick={handleAddToPile}>Add to pile</button> : null }
            </div> 
         </div>
     );
