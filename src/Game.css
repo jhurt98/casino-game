@@ -1,9 +1,10 @@
 .field {
     display: flex;
     padding: 16px;
-    margin-top: 50px;
     border: 1px red dashed;
     background-color: darkgreen;
+    min-width: 120px;
+    min-height: 75px;
 }
 
 .playerHand {
@@ -11,6 +12,9 @@
     padding: 16px;
     border: 1px green dashed;
     background-color: maroon;
+    min-width: 142px;
+    min-height: 78px;
+    margin-right: 48px;
 }
 
 .playerPile {
@@ -18,6 +22,8 @@
     padding: 16px;
     border: 1px green dashed;
     background-color: sienna;
+    min-width: 60px;
+    min-height: 78px;
 }
 
 .board {
