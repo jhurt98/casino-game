@@ -123,7 +123,8 @@ function Game() {
     const [currentMove, setCurrentMove] = useState<number>(0);
     const [currentDeck, setCurrentDeck] = useState<Array<Card>>([]);
     const [selectedCards, setSelectedCards] = useState<Array<Card>>([]);
-    const [selectingCards, setSelectingCards] = useState<boolean>(false);
+    const [selectingPileCards, setSelectingPileCards] = useState<boolean>(false);
+    const [selectingThrowCards, setSelectingThrowCards] = useState<boolean>(false);
     
     const n = allPlayers.length;
     const currentPlayer = allPlayers[currentMove%n];
@@ -137,9 +138,38 @@ function Game() {
         setCurrentDeck([...deck]);
     }
 
+    function endRound() {
+        let mostCardsPlayer: Player = allPlayers[0];
+        let mostSpadesPlayer: Player = allPlayers[0];
+        for (const player of allPlayers) {
+            if (mostCardsPlayer.pile.length < player.pile.length){
+                mostCardsPlayer = player;
+            }
+            if (getSpadesCount(mostSpadesPlayer.pile) < getSpadesCount(player.pile)) {
+                mostSpadesPlayer = player;
+            }
+            let pts = 0;
+            for (const card of player.pile) {
+                pts += card.value;
+            }
+            player.points += pts;
+        }
+        mostCardsPlayer.points++;
+        mostSpadesPlayer.points++;
+        console.log(mostCardsPlayer, mostSpadesPlayer);
+        setAllPlayers([...allPlayers]);
+    }
+
+    function getSpadesCount(pile: Array<Card>): number {
+        let count = 0;
+        for(const card of pile) {
+            if (card.suit === "spades") count++;
+        }
+        return count;
+    }
+
     function createCardComponents(cards: Array<Card>, selectable: boolean) {
         return cards.map((card) => { 
-                selectable = selectable && selectingCards;
                 const style = selectable ? { cursor: "pointer" } : {};
                 const handleSelect = () => {
                     if (selectedCards.includes(card)) return;
@@ -168,6 +198,21 @@ function Game() {
         setSelectedCards([]);
         setAllPlayers([...allPlayers]);
         setTable([...table]);
+        setSelectingPileCards(false);
+    }
+
+    function handleThrowCards() { 
+        const table = currentTable;
+        for (const card of selectedCards) {
+            const i = currentPlayer.hand.findIndex((c) => card === c);
+            if (i !== -1) {
+                currentPlayer.hand.splice(i,1);
+            }
+            table.push(card);
+        }
+        setTable([...table]);
+        setSelectedCards([]);
+        setSelectingThrowCards(false);
     }
 
     const winner = allPlayers.find(player => player.points >= MAX_POINTS);
@@ -185,25 +230,31 @@ function Game() {
 
     const currentHand = currentPlayer ? currentPlayer.hand : [];
     const currentPile = currentPlayer ? currentPlayer.pile : [];
+    const selectingCards = selectingPileCards || selectingThrowCards;
     const selectedCardsContainer = <div style={{display: "flex"}}>{createCardComponents(selectedCards, false)}</div>;
+    const endOfRound = currentPlayer && allHandsEmpty(allPlayers);
+    console.log(allPlayers);
     return (
         <div className="board">
             <div style={{alignSelf: "center"}}>
                 <h3 style={{color: "pink"}}> {status} </h3>
                 <div> { createPlayerComponents(allPlayers, currentMove) } </div>
             </div>
-            <div className="field"> { createCardComponents(currentTable,true) }</div>
+            <div className="field"> { createCardComponents(currentTable, selectingPileCards) }</div>
             <div style={{display:"flex"}}>
-            <div className="playerHand"> { createCardComponents(currentHand,true) }</div>
+            <div className="playerHand"> { createCardComponents(currentHand, selectingCards) }</div>
             <div className="playerPile"> { createCardComponents(currentPile,false)}</div>
             </div>
             <div>
                 <button onClick={startMatch}>Start Match</button>
                 <button onClick={()=> { setCurrentMove(currentMove+1) }}>Next Move</button>
-                { allPlayers.length > 0 ? <button onClick={()=> { setSelectingCards(!selectingCards) }}>Select Cards to Pile</button> : null }
+                { currentPlayer ? <button onClick={()=> { setSelectingPileCards(!selectingPileCards) }}>Select Cards to Pile</button> : null }
+                { currentPlayer ? <button onClick={()=> { setSelectingThrowCards(!selectingThrowCards) }}>Select Cards to Throw</button> : null }
                 { selectingCards ? <div> Selecting </div> : null }
                 { selectingCards ? selectedCardsContainer : null }
-                { selectingCards && selectedCards.length > 0 ? <button onClick={handleAddToPile}>Add to pile</button> : null }
+                { selectingCards && selectedCards.length > 0 ? <button onClick={selectingThrowCards ? handleThrowCards : handleAddToPile}>{
+                    selectingThrowCards? "Throw to Field" : "Add to pile" }</button> : null }
+                { endOfRound ? <button onClick={endRound}>End Round, Calculate Points</button> : null }
            </div> 
         </div>
     );

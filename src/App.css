@@ -32,7 +32,14 @@
     justify-content: space-between;
     flex-direction: column;
     background-color: white;
-    color: black;
+    container: playingcard/ normal;
+}
+
+@container playingcard (true) {
+    .content {
+        color: blue;
+        background-color: grey;
+    }
 }
 
 .bottom {
