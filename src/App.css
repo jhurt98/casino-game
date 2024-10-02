@@ -16,7 +16,7 @@
 }
 
 .game {
-    height: 800px;
+    height: 710px;
     width: 90%;
     margin: 0 auto;
     border: 2px, dashed, white;
@@ -32,7 +32,6 @@
     justify-content: space-between;
     flex-direction: column;
     background-color: white;
-    container: playingcard/ normal;
 }
 
 @container playingcard (true) {

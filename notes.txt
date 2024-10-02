@@ -1,6 +1,5 @@
 first to 25 pts
 play rounds
-11 points each round
 
 pts:
 ace: 1

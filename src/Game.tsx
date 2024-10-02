@@ -39,12 +39,12 @@ const playerOne: Player = {
     points: 0,
 };
 
-function makeAllPlayers() {
-    const allPlayers = [playerOne];
-    for (let i = 2; i <= 6; i++) {
-        allPlayers.push({ id: i, hand: [], pile: [], points: 0 });
+function makePlayers() {
+    const players = [playerOne];
+    for (let i = 2; i <= 4; i++) {
+        players.push({ id: i, hand: [], pile: [], points: 0 });
     }
-    return allPlayers;
+    return players;
 }
 
 function makeDeck(): Array<Card> {
@@ -87,36 +87,42 @@ function passToPlayers(
 }
 
 function passToTable(
-    currentTable: Array<Card>,
+    table: Array<Card>,
     deck: Array<Card>,
     nCards: number,
 ) {
-    while (nCards > 0) {
+    for (let i = 0; i < nCards; i++) {
         const card = deck.pop();
         if (card) {
-            currentTable.push(card);
+            table.push(card);
         }
-        nCards--;
     }
 }
 
 function deal(
     deck: Array<Card>,
     players: Array<Player>,
-    currentTable: Array<Card>,
+    table: Array<Card>,
 ) {
-    let totalCards = 0;
-    const cardPerPerson = Math.floor(deck.length / players.length);
-    if (cardPerPerson >= 3) {
-        totalCards = 3 * players.length;
+    let totalCards = 3*players.length;
+    passToPlayers(players, deck, totalCards);
+    if (deck.length < 3*players.length) {
+        totalCards = Math.floor(deck.length / players.length) * players.length;
         passToPlayers(players, deck, totalCards);
-        passToTable(currentTable, deck, 3);
-    } else {
-        totalCards = cardPerPerson * players.length;
-        passToPlayers(players, deck, totalCards);
-        passToTable(currentTable, deck, deck.length);
+        passToTable(table, deck, deck.length);
     }
+    
 }
+
+function initRound(
+    deck: Array<Card>,
+    players: Array<Player>,
+    table: Array<Card>,
+) {
+    passToTable(table, deck, 3);
+    passToPlayers(players, deck, 3 * players.length);
+}
+    
 
 function createCardComponent(card: Card) {
     return <Card rank={card.rank} suit={card.suit} draggable={false} />;
@@ -139,32 +145,38 @@ function createPlayerComponents(players: Array<Player>, currentMove: number) {
 
 const MAX_POINTS = 25;
 function Game() {
-    const [allPlayers, setAllPlayers] = useState<Array<Player>>([]);
-    const [currentTable, setTable] = useState<Array<Card>>([]);
+    const [players, setPlayers] = useState<Array<Player>>([]);
+    const [table, setTable] = useState<Array<Card>>([]);
     const [currentMove, setCurrentMove] = useState<number>(0);
-    const [currentDeck, setCurrentDeck] = useState<Array<Card>>([]);
+    const [deck, setDeck] = useState<Array<Card>>([]);
     const [selectedCards, setSelectedCards] = useState<Array<Card>>([]);
     const [selectingPileCards, setSelectingPileCards] =
         useState<boolean>(false);
     const [selectingThrowCards, setSelectingThrowCards] =
         useState<boolean>(false);
 
-    const n = allPlayers.length;
-    const currentPlayer = allPlayers[currentMove % n];
+    const n = players.length;
+    const currentPlayer = players[currentMove % n];
 
     function startMatch() {
-        const newPlayers = makeAllPlayers();
+        const newPlayers = makePlayers();
         const deck = makeDeck();
-        deal(deck, newPlayers, currentTable);
-        setAllPlayers([...newPlayers]);
-        setTable([...currentTable]);
-        setCurrentDeck([...deck]);
+        initRound(deck, newPlayers, table);
+        setPlayers([...newPlayers]);
+        setTable([...table]);
+        setDeck([...deck]);
+    }
+
+    function endMatch() {
+        setPlayers([]);
+        setTable([]);
+        setDeck([]);
     }
 
     function endRound() {
-        let mostCardsPlayer: Player = allPlayers[0];
-        let mostSpadesPlayer: Player = allPlayers[0];
-        for (const player of allPlayers) {
+        let mostCardsPlayer: Player = players[0];
+        let mostSpadesPlayer: Player = players[0];
+        for (const player of players) {
             if (mostCardsPlayer.pile.length < player.pile.length) {
                 mostCardsPlayer = player;
             }
@@ -183,9 +195,9 @@ function Game() {
         mostCardsPlayer.points++;
         mostSpadesPlayer.points++;
         console.log(mostCardsPlayer, mostSpadesPlayer);
-        setAllPlayers([...allPlayers]);
+        setPlayers([...players]);
     }
-
+    
     function getSpadesCount(pile: Array<Card>): number {
         let count = 0;
         for (const card of pile) {
@@ -195,6 +207,7 @@ function Game() {
     }
 
     function createCardComponents(cards: Array<Card>, selectable: boolean) {
+        console.log("cards", cards);
         return cards.map((card) => {
             const style = selectable ? { cursor: "pointer" } : {};
             const handleSelect = () => {
@@ -215,11 +228,11 @@ function Game() {
     }
 
     function handleAddToPile() {
-        const table = currentTable;
+        const newTable = [...table];
         for (const card of selectedCards) {
             let i = table.findIndex((c) => card === c);
             if (i !== -1) {
-                table.splice(i, 1);
+                newTable.splice(i, 1);
             }
 
             i = currentPlayer.hand.findIndex((c) => card === c);
@@ -229,38 +242,46 @@ function Game() {
             currentPlayer.pile.push(card);
         }
         setSelectedCards([]);
-        setAllPlayers([...allPlayers]);
-        setTable([...table]);
+        setPlayers([...players]);
+        setTable(newTable);
         setSelectingPileCards(false);
     }
 
     function handleThrowCards() {
-        const table = currentTable;
+        const newtable = [...table];
         for (const card of selectedCards) {
             const i = currentPlayer.hand.findIndex((c) => card === c);
             if (i !== -1) {
                 currentPlayer.hand.splice(i, 1);
             }
-            table.push(card);
+            newtable.push(card);
         }
         setTable([...table]);
         setSelectedCards([]);
         setSelectingThrowCards(false);
     }
 
-    const winner = allPlayers.find((player) => player.points >= MAX_POINTS);
+    function handleDeal() {
+        deal(deck, players, table);
+        setDeck([...deck]);
+        setPlayers([...players]);
+        setTable([...table]);
+    }
+
+    const winner = players.find((player) => player.points >= MAX_POINTS);
     let status;
     if (winner) {
         status = `WINNER: ${winner.id}`;
     } else {
-        if (allPlayers.length === 0) {
+        if (players.length === 0) {
             status = "Waiting for game to start :)";
         } else {
-            const i = currentMove % allPlayers.length;
+            const i = currentMove % players.length;
             status = `It is player ${i + 1}'s turn`;
         }
     }
 
+    console.log("currentPlayer", currentPlayer);
     const currentHand = currentPlayer ? currentPlayer.hand : [];
     const currentPile = currentPlayer ? currentPlayer.pile : [];
     const selectingCards = selectingPileCards || selectingThrowCards;
@@ -269,31 +290,33 @@ function Game() {
             {createCardComponents(selectedCards, false)}
         </div>
     );
-    const endOfRound = currentPlayer && allHandsEmpty(allPlayers);
-    console.log(allPlayers);
+
     return (
+        <div style={{display:"flex", flexGrow:1, justifyContent: "spaceBetween"}}>
         <div className="board">
             <div style={{ alignSelf: "center", minHeight: "90px" }}>
-                <h3 style={{ color: "pink" }}> {status} </h3>
-                <div> {createPlayerComponents(allPlayers, currentMove)} </div>
+                <h3 style={{ color: "pink" }}>{status}</h3>
+                <div>{createPlayerComponents(players, currentMove)}</div>
             </div>
-            <div className="field">
-                {" "}
-                {createCardComponents(currentTable, selectingPileCards)}
+            <div className="table">
+                {createCardComponents(table, selectingPileCards)}
             </div>
             <div style={{ display: "flex" }}>
                 <div className="playerHand">
-                    {" "}
                     {createCardComponents(currentHand, selectingCards)}
                 </div>
                 <div className="playerPile">
-                    {" "}
                     {createCardComponents(currentPile, false)}
                 </div>
             </div>
+            <div style={{minHeight: "97.6px"}}>
+            {selectingCards ? <div> Selecting </div> : null}
+            {selectingCards ? selectedCardsContainer : null}
+            </div>
             <div>
             {/*this whole div is some nonsense, just for testing function*/}
-                <button onClick={startMatch}>Start Match</button>
+                <button onClick={currentPlayer ? endMatch : startMatch}>{currentPlayer ? "End Match" : "Start Match"}</button>
+                { currentPlayer ? <button onClick={handleDeal}>Deal</button> : null }
                 <button
                     onClick={() => {
                         setCurrentMove(currentMove + 1);
@@ -319,8 +342,6 @@ function Game() {
                         Select Cards to Throw
                     </button>
                 ) : null}
-                {selectingCards ? <div> Selecting </div> : null}
-                {selectingCards ? selectedCardsContainer : null}
                 {selectingCards && selectedCards.length > 0 ? (
                     <button
                         onClick={
@@ -332,18 +353,15 @@ function Game() {
                         {selectingThrowCards ? "Throw to Field" : "Add to pile"}
                     </button>
                 ) : null}
-                {endOfRound ? (
-                    <button onClick={endRound}>
-                        End Round, Calculate Points
-                    </button>
-                ) : null}
             </div>
+        </div>
+        <PointsTable players={players}/>
         </div>
     );
 }
 
-function allHandsEmpty(allPlayers: Array<Player>): boolean {
-    for (const player of allPlayers) {
+function allHandsEmpty(players: Array<Player>): boolean {
+    for (const player of players) {
         if (player.hand.length > 0) return false;
     }
     return true;
@@ -353,6 +371,12 @@ async function delay(ms: number) {
     return new Promise((res) => {
         setTimeout(res, ms);
     });
+}
+
+function PointsTable({players}) {
+    return (
+        <ul> { players.map(player => <li>{player.id} {player.points} </li>) }  </ul>
+    );
 }
 
 export default Game;
