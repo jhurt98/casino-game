@@ -41,7 +41,7 @@ const playerOne: Player = {
 
 function makeAllPlayers() {
     const allPlayers = [playerOne];
-    for (let i = 2; i <= 6; i++) {
+    for (let i = 2; i <= 3; i++) {
         allPlayers.push({ id: i, hand: [], pile: [], points: 0 });
     }
     return allPlayers;
@@ -247,6 +247,8 @@ function Game() {
         setSelectedCards([]);
         setSelectingThrowCards(false);
     }
+
+    // Dsiplay deck function?
 
     const winner = allPlayers.find((player) => player.points >= MAX_POINTS);
     let status;
