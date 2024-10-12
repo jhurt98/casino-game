@@ -279,10 +279,15 @@ function Game() {
                 <h3 style={{ color: "pink" }}> {status} </h3>
                 <div> {createPlayerComponents(allPlayers, currentMove)} </div>
             </div>
-            <div className="field">
-                {" "}
-                {createCardComponents(currentTable, selectingPileCards)}
+            <div style={{ display: "flex" }}>
+                <div className="field">
+                    {createCardComponents(currentTable, selectingPileCards)}
+                </div>
+                <div>
+                    Display deck
+                </div>
             </div>
+            
             <div style={{ display: "flex" }}>
                 <div className="playerHand">
                     {" "}
