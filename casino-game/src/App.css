@@ -1,5 +1,5 @@
 #root {
-    max-width: 940px;
+    max-width: 1100px;
 }
 
 .card {
@@ -15,17 +15,9 @@
     flex-wrap: wrap;
 }
 
-.game {
-    height: 710px;
-    width: 90%;
-    margin: 0 auto;
-    border: 2px, dashed, white;
-    display: flex;
-    flex-direction: column;
-}
 
 .playingCard {
-    max-width: 100px;
+    min-width: 50px;
     max-height: 140px;
     border: 1px dashed blueviolet;
     display: flex;

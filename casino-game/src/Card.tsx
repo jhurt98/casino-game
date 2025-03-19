@@ -41,6 +41,7 @@ function Card({ suit, rank, draggable }) {
                 return "?";
         }
     }
+
     function getColor(suit) {
         switch (suit) {
             case "clubs":
@@ -55,6 +56,7 @@ function Card({ suit, rank, draggable }) {
                 return "black";
         }
     }
+
     const icon = getIcon(suit);
     const color = { color: getColor(suit) };
     const dynamicStyle =

@@ -11,13 +11,11 @@ most spades:1
 start: 3 cards per player, 3 cards in middle, right of dealer starts
 
 turn:
-pick up a pair, as many matching card, 
+pick up a pair, as many matching cards, 
 pick a card to make pair, 
 if you cant pick any cards, you have to play a card:
     play -> creates new card with sum, if you have the sum card, and its not a pair already, you can combine cards into your play
-    throw -> into pile
-
-you can add cards in the pile
+    throw -> into table
 
 dealer deals when everyone runs out
 
