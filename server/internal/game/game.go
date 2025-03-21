@@ -89,15 +89,12 @@ func (e *Engine) ResetGame() {
 }
 
 func (e *Engine) StartNextRound() {
-        e.calculatePlayerPoints()
         e.resetPlayerCards()
         e.resetTable()
         e.resetDeck()
         e.dealCards()
         e.passToTable(3)
         e.State.Phase = PhasePlaying
-        e.State.Turn.TurnCount = 1
-        e.State.Turn.CurrentPlayerId = e.State.Players[(e.State.Turn.TurnCount-1)%len(e.State.Players)].Id
 }
 
 func (e *Engine) AddPlayer(playerId string) {
@@ -125,16 +122,14 @@ func (e *Engine) ProcessMove(move PlayerMove) {
     e.State.Turn.CurrentPlayerId = e.State.Players[(e.State.Turn.TurnCount-1)%len(e.State.Players)].Id
     if e.isRoundOver() {
         e.State.Phase = PhaseRoundOver
-        fmt.Printf("round over, deciding next steps\n")
+        e.calculatePlayerPoints()
         if e.hasWinner() {
             e.State.Phase = PhaseGameOver
-        } else {
-            e.calculatePlayerPoints()
-            //e.StartNextRound()
         }
     } else if e.allPlayersHandsEmpty() {
         e.dealCards()
     }
+    
 	e.State.mu.Unlock()
 }
 

@@ -76,7 +76,7 @@ func (s *Server) GameHandler(w http.ResponseWriter, r *http.Request) {
 
 	// is this infinite loop good? is the err case sufficient to make sure it closes properly???
 	for {
-		messageType, message, err := conn.ReadMessage()
+		_, message, err := conn.ReadMessage()
 		if err = s.checkError(err, playerId); err != nil {
 			return
 		}
@@ -85,22 +85,21 @@ func (s *Server) GameHandler(w http.ResponseWriter, r *http.Request) {
 		err = json.Unmarshal(message, &msg)
 		s.checkError(err, playerId)
 
-		if msg.Type == "start" {
-			s.Engine.StartGame()
-            s.Broadcast("state", messageType, s.Engine.GetStateJsonForPlayer)
-		} else if msg.Type == "join" {
-			s.Engine.AddPlayer(playerId)
-            s.Broadcast("join", messageType, s.Engine.GetPlayersJsonForPlayer)
-		} else if msg.Type == "playerMove" {
-            playerMove := game.PlayerMove{}
-            fmt.Printf("ws recieved message data: %+v\n", string(msg.Data))
-			err = json.Unmarshal(msg.Data, &playerMove)
-			s.checkError(err, playerId)
-            fmt.Printf("unmarshalled player move: %+v\n\n", playerMove)
-			s.Engine.ProcessMove(playerMove)
-            s.Broadcast("state", messageType, s.Engine.GetStateJsonForPlayer)
-		}
+        s.HandleMessage(playerId, msg)
 	}
+}
+
+func (s *Server) HandleMessage(playerId string, msg GameMessage) {
+    switch msg.Type {
+    case "start":
+        s.handleStart()
+    case "join":
+        s.handleJoin(playerId)
+    case "playerMove":
+        s.handlePlayerMove(playerId, msg)
+    default:
+       fmt.Printf("unknown message type: %+v", msg.Type)
+    }
 }
 
 func (s *Server) Broadcast(playerViewType string,wsMsgType int, buildPlayerView func(playerId string) json.RawMessage) {
@@ -108,15 +107,30 @@ func (s *Server) Broadcast(playerViewType string,wsMsgType int, buildPlayerView 
 	for playerId, conn := range s.Connections {
         gameMessage := GameMessage { Type: playerViewType, Data: buildPlayerView(playerId) } 
         response, err := json.Marshal(gameMessage)
-        //prettyJson, err := json.MarshalIndent(gameMessage, "    ", "  ")
         fmt.Printf("message response size in bytes: %v\n\n", len(response))
-        //fmt.Printf("broadcasting to player %+v: %+v\n\n", playerId, string(prettyJson))
         s.checkError(err, playerId)
         err = conn.WriteMessage(wsMsgType, response)
 	}
 	s.mu.Unlock()
 }
 
+func (s *Server) handleStart() {
+    s.Engine.StartGame()
+    s.Broadcast("state", websocket.TextMessage, s.Engine.GetStateJsonForPlayer)
+}
+
+func (s *Server) handleJoin(playerId string) {
+    s.Engine.AddPlayer(playerId)
+    s.Broadcast("join", websocket.TextMessage, s.Engine.GetPlayersJsonForPlayer)
+}
+
+func (s *Server) handlePlayerMove(playerId string, msg GameMessage) {
+    playerMove := game.PlayerMove{}
+    err := json.Unmarshal(msg.Data, &playerMove)
+    s.checkError(err, playerId)
+    s.Engine.ProcessMove(playerMove)
+    s.Broadcast("state", websocket.TextMessage, s.Engine.GetStateJsonForPlayer)
+}
 
 func printMessages(messages map[string]json.RawMessage) {
     for pId, msg := range messages { 
