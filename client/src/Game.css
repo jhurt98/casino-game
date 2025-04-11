@@ -3,14 +3,14 @@
     padding: 16px;
     border: 1px red dashed;
     background-color: darkgreen;
-    min-width: 191px;
-    min-height: 75px;
+    min-width: 400px;
+    min-height: 125px;
     flex-wrap: wrap;
 }
 
 .game {
     height: 710px;
-    width: 95%;
+    width: 100%;
     margin: 0 auto;
     border: 2px, dashed, white;
     display: grid;
@@ -24,7 +24,7 @@
     border: 1px green dashed;
     background-color: maroon;
     min-width: 142px;
-    min-height: 78px;
+    min-height: 95px;
     margin-right: 48px;
     flex-wrap: wrap;
 }
@@ -35,7 +35,7 @@
     border: 1px green dashed;
     background-color: sienna;
     min-width: 60px;
-    min-height: 78px;
+    min-height: 95px;
     flex-wrap: wrap;
 }
 
@@ -49,8 +49,8 @@
 
 table {
     align-self: center;
-  border: 2px solid rgb(140 140 140);
-  max-height: 100px;
+    border: 2px solid rgb(140 140 140);
+    max-height: 100px;
     font-size: 10px;
     width: auto;
 }

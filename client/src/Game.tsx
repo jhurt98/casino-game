@@ -1,29 +1,31 @@
 import "./Game.css";
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import Card from "./Card.tsx";
+import PlayingField from "./PlayingField.tsx";
 
-export interface Card {
+export interface PlayingCard {
     suit: string;
     rank: string;
     value: number;
 }
 
-interface GameState {
-    table: Array<Card>,
-    players: Array<Player>,
-    turn: Turn,
-    deckLen: number,
+export interface GameState {
+    table: Array<PlayingCard>;
+    players: Array<Player>;
+    turn: Turn;
+    deckLen: number;
+    phase: number;
 }
 
 interface Turn {
-    turnCount: number,
-    currentPlayerId: string,
+    turnCount: number;
+    currentPlayerId: string;
 }
 
 interface Player {
     id: string;
-    hand: Array<Card>;
-    pile: Array<Card>;
+    hand: Array<PlayingCard>;
+    pile: Array<PlayingCard>;
     points: number;
 }
 
@@ -41,47 +43,59 @@ function normalizePlayer(data: Player): Player {
         hand: data.hand ?? [],
         pile: data.pile ?? [],
         points: data.points ?? 0,
-    }
-}
-
-function createCardComponent(card: Card) {
-    return <Card rank={card.rank} suit={card.suit} draggable={false} />;
+    };
 }
 
 const defaultGameState: GameState = {
     table: [],
     players: [],
-    turn: { turnCount: 0, currentPlayerId: ""},
+    turn: { turnCount: 0, currentPlayerId: "" },
     deckLen: 0,
-}
+};
 //const MAX_POINTS = 25;
 
 function Game() {
     const socketRef = useRef<WebSocket | null>(null);
     const [gameState, setGameState] = useState<GameState>(defaultGameState);
     const [playerId, setPlayerId] = useState<string>();
-    const [selectedCards, setSelectedCards] = useState<Array<Card>>([]);
-    const [selectingTakeCards, setSelectingPileCards] = useState<boolean>(false);
-    const [selectingTossCards, setSelectingTossCards] = useState<boolean>(false);
+    const [selectedCards, setSelectedCards] = useState<Array<PlayingCard>>([]);
+    const [selectingTakeCards, setSelectingPileCards] =
+        useState<boolean>(false);
+    const [selectingTossCards, setSelectingTossCards] =
+        useState<boolean>(false);
 
     function testWS() {
         const socket = new WebSocket("ws://localhost:8080/game");
         socket.onmessage = (event) => {
-            console.log("event data", event.data);
+            //console.log("event data", event.data);
             const message = JSON.parse(event.data);
-            console.log("message", message);
+            //console.log("message", message);
             if (message.type === "join") {
-                const players: Array<Player> = message.data.allPlayers.map((player:Player) => normalizePlayer(player)) as Array<Player>;
+                const players: Array<Player> = message.data.allPlayers.map(
+                    (player: Player) => normalizePlayer(player),
+                ) as Array<Player>;
                 const myPlayerId: string = message.data.myPlayerId;
-                const newGameState: GameState = { ...gameState, players: players } as GameState;
+                const newGameState: GameState = {
+                    ...gameState,
+                    players: players,
+                } as GameState;
                 setGameState(newGameState);
                 setPlayerId(myPlayerId);
             } else if (message.type === "state") {
-                const players: Array<Player> = message.data.players.map((player:Player) => normalizePlayer(player)) as Array<Player>;
-                const table: Array<Card> = message.data.table as Array<Card>;
+                const players: Array<Player> = message.data.players.map(
+                    (player: Player) => normalizePlayer(player),
+                ) as Array<Player>;
+                const table: Array<PlayingCard> = message.data.table as Array<PlayingCard>;
                 const turn: Turn = message.data.turn as Turn;
                 const deckLen: number = message.data.deckLen;
-                const newGameState: GameState = { table: table, turn: turn, players: players, deckLen: deckLen } as GameState;
+                const phase: number = message.data.phase;
+                const newGameState: GameState = {
+                    table: table,
+                    turn: turn,
+                    players: players,
+                    deckLen: deckLen,
+                    phase: phase,
+                } as GameState;
                 setGameState(newGameState);
             }
         };
@@ -104,6 +118,10 @@ function Game() {
         };
     }, []);
 
+    useEffect(()=>{
+        console.log("game componenent rerendered");
+    })
+
     function handleJoinGame() {
         if (socketRef.current === null) {
             return;
@@ -122,7 +140,7 @@ function Game() {
         };
         socketRef.current.send(JSON.stringify(message));
     }
-    
+
     function handleTossCards() {
         if (socketRef.current === null) {
             return;
@@ -130,11 +148,11 @@ function Game() {
         const message: Message = {
             type: "playerMove",
             data: {
-                "moveType": "toss",
-                "playerId": playerId,
-                "cards": selectedCards,
-            }
-        }
+                moveType: "toss",
+                playerId: playerId,
+                cards: selectedCards,
+            },
+        };
         socketRef.current.send(JSON.stringify(message));
         setSelectedCards([]);
         setSelectingTossCards(!selectingTossCards);
@@ -147,11 +165,11 @@ function Game() {
         const message: Message = {
             type: "playerMove",
             data: {
-                "moveType": "take",
-                "playerId": playerId,
-                "cards": selectedCards,
-            }
-        }
+                moveType: "take",
+                playerId: playerId,
+                cards: selectedCards,
+            },
+        };
         socketRef.current.send(JSON.stringify(message));
         setSelectedCards([]);
         setSelectingPileCards(!selectingTakeCards);
@@ -164,11 +182,11 @@ function Game() {
         const message: Message = {
             type: "playerMove",
             data: {
-                "moveType": "skip",
-                "playerId": playerId,
-                "cards": [],
-            }
-        }
+                moveType: "skip",
+                playerId: playerId,
+                cards: [],
+            },
+        };
         socketRef.current.send(JSON.stringify(message));
     }
 
@@ -179,18 +197,21 @@ function Game() {
         const message: Message = {
             type: "playerMove",
             data: {
-                "moveType": "nextRound",
-                "playerId": playerId,
-                "cards": [],
-            }
-        }
+                moveType: "nextRound",
+                playerId: playerId,
+                cards: [],
+            },
+        };
         socketRef.current.send(JSON.stringify(message));
     }
-    function createCardComponents(cards: Array<Card>, selectable: boolean) {
+
+    function createCardComponents(cards: Array<PlayingCard>, selectable: boolean) {
         return cards.map((card) => {
-            const style = selectable ? { cursor: "pointer" } : {};
+            const style = selectable
+                ? { cursor: "pointer", margin: "2px", position: "relative" }
+                : { margin: "4px", position: "relative" };
             const handleSelect = () => {
-                if (selectedCards.includes(card))  {
+                if (selectedCards.includes(card)) {
                     const i = selectedCards.findIndex((c) => card === c);
                     if (i !== -1) {
                         selectedCards.splice(i, 1);
@@ -203,7 +224,7 @@ function Game() {
             return (
                 <div
                     style={style}
-                    key={card.suit + card.rank + Math.random()}
+                    key={card.suit + card.rank}
                     onClick={selectable ? handleSelect : undefined}
                 >
                     {createCardComponent(card)}
@@ -212,12 +233,30 @@ function Game() {
         });
     }
 
-    const currentPlayer = gameState.players.find((player) => player.id == playerId) || {
+    function createCardComponent(card: PlayingCard) {
+        return (
+            <Card
+                card={card}
+                draggable={true}
+                handleDragStart={handleDragStart}
+                handleDragEnd={handleDragEnd}
+                handleHoverOver={handleHoverOver}
+            />
+        );
+    }
+
+    function getCardId(card: PlayingCard) {
+        return `${card.suit}-${card.rank}`;
+    }
+
+    const currentPlayer = gameState.players.find(
+        (player) => player.id == playerId,
+    ) || {
         hand: [],
         pile: [],
         points: 0,
         id: "undefined",
-    };    
+    };
     const { hand: currentHand, pile: currentPile } = currentPlayer;
     const selectingCards = selectingTakeCards || selectingTossCards;
     const selectedCardsContainer = (
@@ -235,55 +274,64 @@ function Game() {
         return (
             <>
                 <button
-                    onClick={() => { setSelectingPileCards(!selectingTakeCards);}}
+                    onClick={() => {
+                        setSelectingPileCards(!selectingTakeCards);
+                    }}
                 >
-                    { selectingTakeCards ? "Cancel" : "Select Cards to Pile" }
+                    {selectingTakeCards ? "Cancel" : "Select Cards to Pile"}
                 </button>
                 <button
-                onClick={() => { setSelectingTossCards(!selectingTossCards);}}
+                    onClick={() => {
+                        setSelectingTossCards(!selectingTossCards);
+                    }}
                 >
-                    { selectingTossCards ? "Cancel" : "Select Cards to Toss" }
+                    {selectingTossCards ? "Cancel" : "Select Cards to Toss"}
                 </button>
             </>
         );
     }
 
     function PlayerActionConfirmButtons() {
-        if (!isMyTurn || !selectingCards || selectedCards.length === 0) return null;
+        if (!isMyTurn || !selectingCards || selectedCards.length === 0)
+            return null;
         return (
-            <button onClick={selectingTossCards ? handleTossCards : handleTakeCards}>
+            <button
+                onClick={selectingTossCards ? handleTossCards : handleTakeCards}
+            >
                 {selectingTossCards ? "Toss to Table" : "Add to pile"}
             </button>
         );
     }
 
+    function NextRoundAcknowledgeModal() {
+        return <button>Ready For Next Round</button>;
+    }
+
     function getGamePhaseInfoString() {
+        if (gameState.phase === 2) {
+            return `ROUND OVER.`;
+        }
         return `Turn: ${gameState.turn.turnCount}`;
     }
+
     return (
         <div className="game">
             <h1>CASINO</h1>
-            <div style={{display: "flex", flexDirection:"column"}}>
+            <div style={{ display: "flex", flexDirection: "column" }}>
                 <div style={{ alignSelf: "center", minHeight: "30px" }}>
-                    <h4 style={{ color: "pink" }}>{ `Deck Count: ${gameState.deckLen}` }</h4>
+                    <h4
+                        style={{ color: "pink" }}
+                    >{`Deck Count: ${gameState.deckLen}`}</h4>
                 </div>
                 <PointsTable players={gameState.players} />
             </div>
             <div className="board">
                 <div style={{ alignSelf: "center", minHeight: "30px" }}>
-                    <h4 style={{ color: "pink" }}>{getGamePhaseInfoString()}</h4>
+                    <h4 style={{ color: "pink" }}>
+                        {getGamePhaseInfoString()}
+                    </h4>
                 </div>
-                <div className="table">
-                    {createCardComponents(gameState.table, selectingTakeCards)}
-                </div>
-                <div style={{ display: "flex" }}>
-                    <div className="playerHand">
-                        {createCardComponents(currentHand, selectingCards)}
-                    </div>
-                    <div className="playerPile">
-                        {createCardComponents(currentPile, false)}
-                    </div>
-                </div> 
+                <PlayingField gameState={gameState} playerId={playerId}/>
                 <div style={{ minHeight: "97.6px" }}>
                     {selectingCards ? <div> Selecting </div> : null}
                     {selectingCards ? selectedCardsContainer : null}
@@ -295,15 +343,21 @@ function Game() {
                 <button onClick={handleStart}>Start Game</button>
                 <button onClick={handleNextRound}>Next Round</button>
             </div>
-            <div style={{ display: "flex", flexDirection: "column", alignSelf: "center"}}>
-                <PlayerActionButtons/>
-                <PlayerActionConfirmButtons/>
+            <div
+                style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    alignSelf: "center",
+                }}
+            >
+                <PlayerActionButtons />
+                <PlayerActionConfirmButtons />
             </div>
         </div>
     );
 }
 
-function PointsTable({ players } : { players: Array<Player> }) {
+function PointsTable({ players }: { players: Array<Player> }) {
     return (
         <table>
             <thead>
@@ -315,7 +369,7 @@ function PointsTable({ players } : { players: Array<Player> }) {
             <tbody>
                 {players.map((player, i) => (
                     <tr key={player.id}>
-                        <th scope="row">{`Player ${i+1}`}</th>
+                        <th scope="row">{`Player ${i + 1}`}</th>
                         <td>{player.points}</td>
                     </tr>
                 ))}

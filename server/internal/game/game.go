@@ -159,6 +159,7 @@ func (e *Engine) GetStateJsonForPlayer(playerId string) json.RawMessage {
         Turn: e.State.Turn,
         Players: make([]PlayerView, len(e.State.Players)),
         DeckLen: len(e.State.Deck),
+        Phase: e.State.Phase,
     }
     for i, p := range e.State.Players {
         pv := PlayerView{

@@ -20,3 +20,17 @@ if you cant pick any cards, you have to play a card:
 dealer deals when everyone runs out
 
 final round = dealer doesnt have enough for another one. if it can give everyone an extra card it does
+
+
+UI/UX:
+
+- drag any cards from hand to table, or from table. 
+- potential matches glow
+- show opponents what card was used to pick up 
+- putting table cards together to show a special combo
+- making play, drag card from hand, make cards glow on hover, give
+  prompt/dialoge
+- when you take cards: drag from hand to table, prompt shows up to pick up.
+
+Server: 
+- implement game rooms

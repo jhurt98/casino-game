@@ -1,33 +1,19 @@
-import { useState, useRef } from "react";
-function Card({ suit, rank, draggable }) {
-    const [pos, setPos] = useState(undefined);
-    const [drag, setDrag] = useState({ x: 0, y: 0 });
-    const [dragging, setDragging] = useState(false);
-    const test = useRef(null);
+import { useRef } from "react";
+import type {PlayingCard} from "./Game.tsx";
 
-    function handleMouseDown(e: React.MouseEvent) {
-        e.preventDefault();
-        drag.x = e.clientX;
-        drag.y = e.clientY;
-        setDragging(true);
-    }
+interface CardProps {
+    card: PlayingCard;
+    handleMouseDown: (e: MouseEvent, cardRef: HTMLDivElement | null) => void;
+}
 
-    function handleMouseMove(e: React.MouseEvent) {
-        e.preventDefault();
-        console.log(drag);
-        const xDiff = drag.x - e.clientX;
-        const yDiff = drag.y - e.clientY;
-        drag.x = e.clientX;
-        drag.y = e.clientY;
-        console.log(drag, xDiff, yDiff);
-        if (test && test.current) {
-            const newTop = `${test.current.offsetTop - yDiff}px`;
-            const newLeft = `${test.current.offsetLeft - xDiff}px`;
-            const newPos = { top: newTop, left: newLeft };
-            setPos(newPos);
-        }
-    }
-    function getIcon(suit) {
+function Card( {
+    card,
+    handleMouseDown
+}: CardProps) {
+
+    const cardRef = useRef<HTMLDivElement>(null);
+
+    function getIcon(suit: string) {
         switch (suit) {
             case "clubs":
                 return <p>&clubs;</p>;
@@ -42,7 +28,7 @@ function Card({ suit, rank, draggable }) {
         }
     }
 
-    function getColor(suit) {
+    function getColor(suit: string) {
         switch (suit) {
             case "clubs":
                 return "black";
@@ -57,28 +43,27 @@ function Card({ suit, rank, draggable }) {
         }
     }
 
-    const icon = getIcon(suit);
-    const color = { color: getColor(suit) };
-    const dynamicStyle =
-        pos === undefined ? {} : { top: pos.top, left: pos.left };
-    return (
-        <div
-            className="playingCard"
-            onMouseDown={draggable ? handleMouseDown : undefined}
-            onMouseMove={dragging ? handleMouseMove : undefined}
-            onMouseUp={() => setDragging(false)}
-            ref={test}
-            style={dynamicStyle}
-        >
-            <div className="content" style={color}>
-                <p>{rank}</p>
-                {icon}
+        const icon = getIcon(card.suit);
+        const color = { color: getColor(card.suit) };
+        //const cardId = `${card.suit}-${card.rank}`;
+        return (
+            <div
+                className="playingCard"
+                onMouseDown={(e: MouseEvent)=> handleMouseDown(e,cardRef.current)}
+                ref={cardRef}
+                style={{
+                    position: "relative",
+                }}
+            >
+                <div className="content" style={color}>
+                    <p>{card.rank}</p>
+                    {icon}
+                </div>
+                <div className="content bottom" style={color}>
+                    <p>{card.rank}</p>
+                    {icon}
+                </div>
             </div>
-            <div className="content bottom" style={color}>
-                <p>{rank}</p>
-                {icon}
-            </div>
-        </div>
-    );
+        );
 }
 export default Card;
