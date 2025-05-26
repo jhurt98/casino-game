@@ -17,7 +17,6 @@ function Lobby() {
             console.log("event data", event.data);
             const message = JSON.parse(event.data);
             if (message.type === "join") {
-                console.log("player joined");
                 const newPlayer = message.data[message.data.length - 1];
                 const playerName = "Player " + newPlayer.Id;
                 setPlayers((players) => [...players, playerName]);

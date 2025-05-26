@@ -3,9 +3,9 @@ package game
 import (
 	"encoding/json"
 	"fmt"
+	"math/rand/v2"
 	"slices"
 	"sync"
-    "math/rand/v2"
 )
 
 type GamePhase int
@@ -13,7 +13,7 @@ type GamePhase int
 const (
 	PhaseLobby GamePhase = iota
 	PhasePlaying
-    PhaseRoundOver
+	PhaseRoundOver
 	PhaseGameOver
 )
 
@@ -30,30 +30,36 @@ type Card struct {
 	Value int    `json:"value"`
 }
 
+type CardStack struct {
+	Cards []Card `json:"cards"`
+    Type  string `json:"type"`
+}
+
 type Player struct {
-    Id     string `json:"id"`
-    Points int    `json:"points"`
-    Hand   []Card `json:"hand"`
-    Pile   []Card `json:"pile"`
+	Id     string `json:"id"`
+	Points int    `json:"points"`
+	Hand   []Card `json:"hand"`
+	Pile   []Card `json:"pile"`
 }
 
 type PlayerMove struct {
-    MoveType string `json:"moveType"`
-    PlayerId string `json:"playerId"`
-    Cards    []Card `json:"cards"`
+	MoveType  string    `json:"moveType"`
+	PlayerId  string    `json:"playerId"`
+	Cards     []Card    `json:"cards"`
+	CardStack CardStack `json:"cardStack"`
 }
 
 type Turn struct {
-    TurnCount       int    `json:"turnCount"`
-    CurrentPlayerId string `json:"currentPlayerId"`
+	TurnCount       int    `json:"turnCount"`
+	CurrentPlayerId string `json:"currentPlayerId"`
 }
 
 type GameState struct {
-	Deck    []Card    `json:"deck"`
-	Players []*Player `json:"players"`
-	Table   []Card    `json:"table"`
-	Turn    *Turn     `json:"turn"`
-    Phase   GamePhase `json:"phase"`
+	Deck    []Card      `json:"deck"`
+	Players []*Player   `json:"players"`
+	Table   []CardStack `json:"table"`
+	Turn    *Turn       `json:"turn"`
+	Phase   GamePhase   `json:"phase"`
 	mu      sync.Mutex
 }
 
@@ -65,50 +71,50 @@ func NewEngine() *Engine {
 
 func NewGameState() *GameState {
 	deck := initDeck()
-	table := make([]Card, 0)
+	table := make([]CardStack, 0)
 	players := make([]*Player, 0)
 	return &GameState{
 		Deck:    deck,
 		Table:   table,
 		Players: players,
-        Turn:    &Turn{ TurnCount: 0, CurrentPlayerId: ""},
+		Turn:    &Turn{TurnCount: 0, CurrentPlayerId: ""},
 		Phase:   PhaseLobby,
 	}
 }
 
 func (e *Engine) StartGame() {
 	e.dealCards()
-    e.passToTable(3)
-    e.State.Phase = PhasePlaying
-    e.State.Turn.TurnCount = 1
-    e.State.Turn.CurrentPlayerId = e.State.Players[(e.State.Turn.TurnCount-1)%len(e.State.Players)].Id
+	e.passToTable(3)
+	e.State.Phase = PhasePlaying
+	e.State.Turn.TurnCount = 1
+	e.State.Turn.CurrentPlayerId = e.State.Players[(e.State.Turn.TurnCount-1)%len(e.State.Players)].Id
 }
 
 func (e *Engine) ResetGame() {
-    e.State = NewGameState()
+	e.State = NewGameState()
 }
 
 func (e *Engine) StartNextRound() {
-        e.resetPlayerCards()
-        e.resetTable()
-        e.resetDeck()
-        e.dealCards()
-        e.passToTable(3)
-        e.State.Phase = PhasePlaying
+	e.resetPlayerCards()
+	e.resetTable()
+	e.resetDeck()
+	e.dealCards()
+	e.passToTable(3)
+	e.State.Phase = PhasePlaying
 }
 
 func (e *Engine) AddPlayer(playerId string) {
 	e.State.mu.Lock()
-    e.State.Players = append(e.State.Players, &Player{Points: 0, Id: playerId, Hand: []Card{}, Pile: []Card{}})
+	e.State.Players = append(e.State.Players, &Player{Points: 0, Id: playerId, Hand: []Card{}, Pile: []Card{}})
 	e.State.mu.Unlock()
 }
 
 func (e *Engine) RemovePlayer(playerId string) {
-    e.State.mu.Lock()
-    e.State.Players= slices.DeleteFunc(e.State.Players, func(player *Player) bool {
-        return player.Id == playerId 
-    })
-    e.State.mu.Unlock()
+	e.State.mu.Lock()
+	e.State.Players = slices.DeleteFunc(e.State.Players, func(player *Player) bool {
+		return player.Id == playerId
+	})
+	e.State.mu.Unlock()
 }
 
 func (e *Engine) ProcessMove(move PlayerMove) {
@@ -117,66 +123,68 @@ func (e *Engine) ProcessMove(move PlayerMove) {
 		e.tossCards(move.PlayerId, move.Cards)
 	} else if move.MoveType == "take" {
 		e.takeCards(move.PlayerId, move.Cards)
+	} else if move.MoveType == "stackForLater" {
+		e.stackForLater(move.PlayerId, move.Cards, move.CardStack)
 	}
-    e.State.Turn.TurnCount++
-    e.State.Turn.CurrentPlayerId = e.State.Players[(e.State.Turn.TurnCount-1)%len(e.State.Players)].Id
-    if e.isRoundOver() {
-        e.State.Phase = PhaseRoundOver
-        e.calculatePlayerPoints()
-        if e.hasWinner() {
-            e.State.Phase = PhaseGameOver
-        }
-    } else if e.allPlayersHandsEmpty() {
-        e.dealCards()
-    }
-    
+	e.State.Turn.TurnCount++
+	e.State.Turn.CurrentPlayerId = e.State.Players[(e.State.Turn.TurnCount-1)%len(e.State.Players)].Id
+	if e.isRoundOver() {
+		e.State.Phase = PhaseRoundOver
+		e.calculatePlayerPoints()
+		if e.hasWinner() {
+			e.State.Phase = PhaseGameOver
+		}
+	} else if e.allPlayersHandsEmpty() {
+		e.dealCards()
+	}
+
 	e.State.mu.Unlock()
 }
 
 func (e *Engine) GetStateJsonForPlayer(playerId string) json.RawMessage {
-    e.State.mu.Lock()
-    defer e.State.mu.Unlock()
-    
-    // Create a temporary struct for marshaling
-    type PlayerView struct {
-        Id       string `json:"id"`
-        Points   int    `json:"points"`
-        Hand     []Card `json:"hand,omitempty"`
-        Pile     []Card `json:"pile"`
-        HandSize int    `json:"handSize"`
-    }
-    
-    type GameStateView struct {
-        Table   []Card       `json:"table"`
-        Players []PlayerView `json:"players"`
-        Turn    *Turn        `json:"turn"`
-        DeckLen int          `json:"deckLen"`
-        Phase   GamePhase    `json:"phase"`
-    }
-    
-    view := GameStateView{
-        Table: e.State.Table,
-        Turn: e.State.Turn,
-        Players: make([]PlayerView, len(e.State.Players)),
-        DeckLen: len(e.State.Deck),
-        Phase: e.State.Phase,
-    }
-    for i, p := range e.State.Players {
-        pv := PlayerView{
-            Id:       p.Id,
-            Points:   p.Points,
-            Pile:     p.Pile,
-            HandSize: len(p.Hand),
-        }
-        
-        // Only include hand for the current player
-        if p.Id == playerId {
-            pv.Hand = p.Hand
-        }
-        
-        view.Players[i] = pv
-    }
-    
+	e.State.mu.Lock()
+	defer e.State.mu.Unlock()
+
+	// Create a temporary struct for marshaling
+	type PlayerView struct {
+		Id       string `json:"id"`
+		Points   int    `json:"points"`
+		Hand     []Card `json:"hand,omitempty"`
+		Pile     []Card `json:"pile"`
+		HandSize int    `json:"handSize"`
+	}
+
+	type GameStateView struct {
+		Table   []CardStack  `json:"table"`
+		Players []PlayerView `json:"players"`
+		Turn    *Turn        `json:"turn"`
+		DeckLen int          `json:"deckLen"`
+		Phase   GamePhase    `json:"phase"`
+	}
+
+	view := GameStateView{
+		Table:   e.State.Table,
+		Turn:    e.State.Turn,
+		Players: make([]PlayerView, len(e.State.Players)),
+		DeckLen: len(e.State.Deck),
+		Phase:   e.State.Phase,
+	}
+	for i, p := range e.State.Players {
+		pv := PlayerView{
+			Id:       p.Id,
+			Points:   p.Points,
+			Pile:     p.Pile,
+			HandSize: len(p.Hand),
+		}
+
+		// Only include hand for the current player
+		if p.Id == playerId {
+			pv.Hand = p.Hand
+		}
+
+		view.Players[i] = pv
+	}
+
 	data, err := json.Marshal(view)
 	if err != nil {
 		fmt.Printf("error marshalling State.Players into json: %+v\n", err)
@@ -186,38 +194,38 @@ func (e *Engine) GetStateJsonForPlayer(playerId string) json.RawMessage {
 }
 
 func (e *Engine) GetPlayersJsonForPlayer(playerId string) json.RawMessage {
-    e.State.mu.Lock()
-    defer e.State.mu.Unlock()
-    type PlayerView struct {
-        Id       string `json:"id"`
-        Points   int    `json:"points"`
-        Hand     []Card `json:"hand,omitempty"`
-        Pile     []Card `json:"pile"`
-        HandSize int    `json:"handSize"`
-    }
+	e.State.mu.Lock()
+	defer e.State.mu.Unlock()
+	type PlayerView struct {
+		Id       string `json:"id"`
+		Points   int    `json:"points"`
+		Hand     []Card `json:"hand,omitempty"`
+		Pile     []Card `json:"pile"`
+		HandSize int    `json:"handSize"`
+	}
 
-    type View struct {
-        AllPlayers []PlayerView `json:"allPlayers"`
-        MyPlayerId string       `json:"myPlayerId"`
-    }
+	type View struct {
+		AllPlayers []PlayerView `json:"allPlayers"`
+		MyPlayerId string       `json:"myPlayerId"`
+	}
 
-    allPlayers := make([]PlayerView, len(e.State.Players))
-    for i, p := range e.State.Players {
-        pv := PlayerView{
-            Id:       p.Id,
-            Points:   p.Points,
-            Pile:     p.Pile,
-            HandSize: len(p.Hand),
-        }
-        
-        // Only include hand for the current player
-        if p.Id == playerId {
-            pv.Hand = p.Hand
-        }
-        
-        allPlayers[i] = pv
-    }
-    view := View { AllPlayers: allPlayers, MyPlayerId: playerId } 
+	allPlayers := make([]PlayerView, len(e.State.Players))
+	for i, p := range e.State.Players {
+		pv := PlayerView{
+			Id:       p.Id,
+			Points:   p.Points,
+			Pile:     p.Pile,
+			HandSize: len(p.Hand),
+		}
+
+		// Only include hand for the current player
+		if p.Id == playerId {
+			pv.Hand = p.Hand
+		}
+
+		allPlayers[i] = pv
+	}
+	view := View{AllPlayers: allPlayers, MyPlayerId: playerId}
 	data, err := json.Marshal(view)
 	if err != nil {
 		fmt.Printf("error marshalling State.Players into json: %+v\n", err)
@@ -236,7 +244,7 @@ func initDeck() []Card {
 			k++
 		}
 	}
-	return shuffleCards(d) 
+	return shuffleCards(d)
 }
 
 func getValue(suit, rank string) int {
@@ -253,10 +261,10 @@ func getValue(suit, rank string) int {
 }
 
 func (e *Engine) dealCards() {
-    if len(e.State.Deck) == 0 {
-        e.State.Phase = PhaseRoundOver
-        return
-    }
+	if len(e.State.Deck) == 0 {
+		e.State.Phase = PhaseRoundOver
+		return
+	}
 	nCardsToPass := 3 * len(e.State.Players)
 	e.passToPlayers(nCardsToPass)
 	if len(e.State.Deck) < 3*len(e.State.Players) {
@@ -287,7 +295,7 @@ func (e *Engine) passToTable(ncards int) {
 		m := len(deck)
 		card := deck[m-1]
 		deck = deck[:m-1]
-		table = append(table, card)
+		table = append(table, CardStack{Cards: []Card{card}, Type: "single"})
 	}
 	e.State.Table = table
 	e.State.Deck = deck
@@ -302,11 +310,11 @@ func (e *Engine) takeCards(playerId string, cards []Card) {
 	}
 
 	for _, c := range cards {
-		player.Pile= append(player.Pile, c)
-		e.State.Table = slices.DeleteFunc(e.State.Table, func(tableCard Card) bool {
-			return tableCard == c
+		player.Pile = append(player.Pile, c)
+		e.State.Table = slices.DeleteFunc(e.State.Table, func(cardStack CardStack) bool {
+			return cardStackHasCard(cardStack, c)
 		})
-        player.Hand = slices.DeleteFunc(player.Hand, func(handCard Card) bool {
+		player.Hand = slices.DeleteFunc(player.Hand, func(handCard Card) bool {
 			return handCard == c
 		})
 	}
@@ -321,7 +329,36 @@ func (e *Engine) tossCards(playerId string, cards []Card) {
 	}
 
 	for _, c := range cards {
-		e.State.Table = append(e.State.Table, c)
+		e.State.Table = append(e.State.Table, CardStack{[]Card{c},"single"})
+		player.Hand = slices.DeleteFunc(player.Hand, func(handcard Card) bool {
+			return handcard == c
+		})
+	}
+}
+
+/*
+i dont like this too much because the code expression is saying:
+
+	you can stack more than one card
+	not true, its like this because i added an optional cardSTack field to existing PlayerMove{}
+	instead of refactoring into unique structs for each or into something else.
+	but it works for now and i dont see having to add more move types for now.
+
+    also cardStack.isEqual is a bit misleading because the argument will have a different type
+*/
+func (e *Engine) stackForLater(playerId string, cards []Card, cardStack CardStack) {
+	player, err := e.getPlayer(playerId)
+	if err != nil {
+		fmt.Printf("%v\n", err)
+	}
+    fmt.Printf("cardStack: %+v\n", cardStack)
+	for i, tableStack := range e.State.Table {
+		if cardStack.isEqual(tableStack) {
+			e.State.Table[i].Cards = append(tableStack.Cards, cards...)
+            e.State.Table[i].Type = cardStack.Type
+		}
+	}
+	for _, c := range cards {
 		player.Hand = slices.DeleteFunc(player.Hand, func(handcard Card) bool {
 			return handcard == c
 		})
@@ -338,79 +375,101 @@ func (e *Engine) getPlayer(playerId string) (*Player, error) {
 }
 
 func (e *Engine) allPlayersHandsEmpty() bool {
-    for _,p := range e.State.Players {
-        if len(p.Hand) > 0 {
-            return false
-        }
-    }
-    return true
+	for _, p := range e.State.Players {
+		if len(p.Hand) > 0 {
+			return false
+		}
+	}
+	return true
 }
 
 func (e *Engine) calculatePlayerPoints() {
-    mostCardsPlayer := &Player{}
-    mostSpadesPlayer := &Player{}
-    for _, p := range e.State.Players {
-        cardPoints := 0
-        for _,card := range p.Pile {
-            cardPoints += card.Value
-        }
-        if len(p.Pile) > len(mostCardsPlayer.Pile) {
-            mostCardsPlayer = p
-        }
-        if getSpadesCount(p) > getSpadesCount(mostSpadesPlayer) {
-            mostSpadesPlayer = p
-        }
-        p.Points += cardPoints
-    }
-    mostCardsPlayer.Points += 1
-    mostSpadesPlayer.Points += 1
+	mostCardsPlayer := &Player{}
+	mostSpadesPlayer := &Player{}
+	for _, p := range e.State.Players {
+		cardPoints := 0
+		for _, card := range p.Pile {
+			cardPoints += card.Value
+		}
+		if len(p.Pile) > len(mostCardsPlayer.Pile) {
+			mostCardsPlayer = p
+		}
+		if getSpadesCount(p) > getSpadesCount(mostSpadesPlayer) {
+			mostSpadesPlayer = p
+		}
+		p.Points += cardPoints
+	}
+	mostCardsPlayer.Points += 1
+	mostSpadesPlayer.Points += 1
 }
 
 func getSpadesCount(p *Player) int {
-    count := 0
-    for _,card := range p.Pile {
-        if card.Suit == "spades" {
-            count++
-        }
-    }
-    return count
+	count := 0
+	for _, card := range p.Pile {
+		if card.Suit == "spades" {
+			count++
+		}
+	}
+	return count
+}
+
+func (cs *CardStack) push(c Card) {
+	cs.Cards = append(cs.Cards, c)
 }
 
 func (e *Engine) resetPlayerCards() {
-    for _, p := range e.State.Players {
-        p.Hand = []Card{}
-        p.Pile = []Card{}
-    }
+	for _, p := range e.State.Players {
+		p.Hand = []Card{}
+		p.Pile = []Card{}
+	}
 }
 
 func (e *Engine) resetTable() {
-    e.State.Table = []Card{}
+	e.State.Table = []CardStack{}
 }
 
 func (e *Engine) resetDeck() {
-    e.State.Deck = initDeck()
+	e.State.Deck = initDeck()
 }
 
 func (e *Engine) isRoundOver() bool {
-    return e.allPlayersHandsEmpty() && len(e.State.Deck) == 0
+	return e.allPlayersHandsEmpty() && len(e.State.Deck) == 0
 }
 
 func (e *Engine) hasWinner() bool {
-    for _,p := range e.State.Players {
-        if p.Points >= 25 {
-            return true
-        }
-    }
-    return false
+	for _, p := range e.State.Players {
+		if p.Points >= 25 {
+			return true
+		}
+	}
+	return false
 }
 
 func shuffleCards(cards []Card) []Card {
-    n := len(cards)
-    shuffledCards := make([]Card, n)
-    for i := range n {
-        j := rand.IntN(n-i)
-        shuffledCards[i] = cards[j]
-        cards = append(cards[:j], cards[j+1:]...)
-    }
-    return shuffledCards
+	n := len(cards)
+	shuffledCards := make([]Card, n)
+	for i := range n {
+		j := rand.IntN(n - i)
+		shuffledCards[i] = cards[j]
+		cards = append(cards[:j], cards[j+1:]...)
+	}
+	return shuffledCards
+}
+
+func cardStackHasCard(cardStack CardStack, card Card) bool {
+	for _, c := range cardStack.Cards {
+		if card == c {
+			return true
+		}
+	}
+	return false
+}
+
+func (source CardStack) isEqual(target CardStack) bool {
+	for _, card := range source.Cards {
+		if !cardStackHasCard(target, card) {
+			return false
+		}
+	}
+	return true
 }

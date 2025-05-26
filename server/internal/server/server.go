@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"os"
 	"sync"
+    "time"
 )
 
 type GameMessage struct {
@@ -22,6 +23,8 @@ type Server struct {
 	Connections map[string]*websocket.Conn
 	mu          sync.Mutex
 	router      *http.ServeMux
+    acks map[string]bool
+    acksMu sync.Mutex
 }
 
 func NewServer() *Server {
@@ -90,6 +93,7 @@ func (s *Server) GameHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) HandleMessage(playerId string, msg GameMessage) {
+    fmt.Printf("got message %v from %v\n", playerId, msg)
     switch msg.Type {
     case "start":
         s.handleStart()
@@ -97,6 +101,8 @@ func (s *Server) HandleMessage(playerId string, msg GameMessage) {
         s.handleJoin(playerId)
     case "playerMove":
         s.handlePlayerMove(playerId, msg)
+    case "readyAck":
+        s.handlePlayerReadyAck(playerId)
     default:
        fmt.Printf("unknown message type: %+v", msg.Type)
     }
@@ -130,6 +136,58 @@ func (s *Server) handlePlayerMove(playerId string, msg GameMessage) {
     s.checkError(err, playerId)
     s.Engine.ProcessMove(playerMove)
     s.Broadcast("state", websocket.TextMessage, s.Engine.GetStateJsonForPlayer)
+    /* if state.Phase == RoundOver: client has round over prompt with a ready up button
+       server starts a timeout for starting the next round. or sends the function if all players ready beforehand.
+    */
+    if s.Engine.State.Phase == game.PhaseRoundOver {
+        s.initAcks()
+    }
+}
+
+func (s *Server) handlePlayerReadyAck(playerId string) {
+    fmt.Printf("got a ready ack from: %v. during gamephase %v\n", playerId, s.Engine.State.Phase)
+    if s.Engine.State.Phase != game.PhaseRoundOver {
+        return
+    }
+    s.acksMu.Lock()
+    s.acks[playerId] = true
+    s.acksMu.Unlock()
+    s.checkAndHandleAcks(false)
+}
+
+func (s *Server) initAcks() {
+    s.acksMu.Lock()
+    defer s.acksMu.Unlock()
+    s.acks = make(map[string]bool)
+    for playerId := range s.Connections {
+        s.acks[playerId] = false
+    }
+    go func() {
+        time.Sleep(5*time.Second)
+        s.checkAndHandleAcks(true)
+    }()
+
+}
+
+func (s *Server) checkAndHandleAcks(force bool) {
+    s.acksMu.Lock()
+    defer s.acksMu.Unlock()
+    ready := force
+    if !ready {
+        ready = true 
+        for _, isReady := range s.acks {
+            if !isReady {
+                ready = false
+                break
+            }
+        }
+    }
+
+    if ready {
+        s.acks = nil
+        s.Engine.StartNextRound()
+        s.Broadcast("state", websocket.TextMessage, s.Engine.GetStateJsonForPlayer)
+    }
 }
 
 func printMessages(messages map[string]json.RawMessage) {
@@ -137,6 +195,7 @@ func printMessages(messages map[string]json.RawMessage) {
         fmt.Printf("%+v: %+v\n", pId, string(msg))
     }
 }
+
 func checkOrigin(r *http.Request) bool {
 	origin := r.Header.Get("Origin")
 	return origin == "http://192.168.0.120:5173" || origin == "http://localhost:5173" || origin == "localhost"

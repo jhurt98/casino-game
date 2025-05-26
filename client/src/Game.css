@@ -1,27 +1,70 @@
 .table{
     display: flex;
-    padding: 16px;
-    border: 1px red dashed;
+    padding-top: 16px;
+    padding-bottom: 16px;
     background-color: darkgreen;
-    min-width: 400px;
-    min-height: 125px;
+    min-width: 600px;
+    min-height: 102px;
     flex-wrap: wrap;
+    justify-content: center;
+    width: 98%;
 }
 
 .game {
-    height: 710px;
+    height: 97vh;
     width: 100%;
     margin: 0 auto;
-    border: 2px, dashed, white;
+    border: 1px, solid, white;
     display: grid;
-    grid-template-columns: 150px auto 150px;
+    grid-template-columns: 200px auto 200px;
     grid-template-rows: max-content; 
+}
+
+.cardStack {
+    margin-right: 4px;
+    display: flex;
+}
+
+.playingCard {
+    border: 2px solid grey;
+    display: flex;
+    justify-content: space-between;
+    flex-direction: column;
+    background-color: white;
+    width: 70px;
+    height: 98px;
+    margin-left:-68px;
+}
+
+.playingCard:first-child {
+    margin-left: 0;
+}
+.playingCard:hover {
+    cursor:grab
+}
+
+.small {
+    border: 1px solid grey;
+    display: flex;
+    justify-content: space-between;
+    flex-direction: column;
+    background-color: white;
+    width: 35px;
+    height: 49px;
+}
+
+.small p {
+    margin: 0px;
+    font-size: 12px;
+}
+
+.small .content {
+    padding: 0px;
 }
 
 .playerHand {
     display: flex;
     padding: 16px;
-    border: 1px green dashed;
     background-color: maroon;
     min-width: 142px;
     min-height: 95px;
@@ -32,19 +75,70 @@
 .playerPile {
     display: flex;
     padding: 16px;
-    border: 1px green dashed;
     background-color: sienna;
     min-width: 60px;
     min-height: 95px;
     flex-wrap: wrap;
 }
 
+.playerPile :hover {
+    cursor: -webkit-zoom-in;
+    cursor: zoom-in;
+}
+
 .board {
     display: flex;
     flex-direction: column;
-    justify-content: space-around;
+    justify-content: space-between;
     flex-grow: 1;
     align-items: center;
+    margin-top: 128px;
+}
+
+.column {
+    display: flex;
+    flex-direction: column;
+}
+
+.playModal {
+    width: fit-content;
+    height: 96px;
+    border: 8px solid rgb(255, 255, 163);
+    color: black;
+    background: white;
+    z-index: 1000;
+    display: none;
+    padding-left: 32px;
+    padding-right: 32px;
+    border-radius: 16px;
+}
+
+.playModal button {
+    width: fit-content;
+    margin-top: 0px;
+    margin-right:8px;
+}
+.playModal button:last-child{
+    margin-right:0px;
+}
+
+.nextRoundModal {
+    position: absolute;
+    width: 500px;
+    height: 400px;
+    z-index: 4;
+    margin-top: 5%;
+    background-color: grey;
+    border-radius: 12px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+}
+.nextRoundModal h3 {
+    text-align: center;
+}
+.nextRoundModal > * {
+    margin-bottom: 8px;
 }
 
 table {
@@ -53,10 +147,16 @@ table {
     max-height: 100px;
     font-size: 10px;
     width: auto;
+    min-width: 144px;
 }
 
 button {
-    margin: 8px;
+    margin-top: 18px;
+    width: 160px;
+    align-self: center;
+    font-size: 18px;
+    cursor: pointer;
+    height: 32px;
 }
 
 td:last-of-type {
@@ -79,4 +179,56 @@ td {
 
 h1 {
     grid-column: 1/ -1;
+}
+
+.bottom {
+    align-self: flex-end;
+}
+
+.bottom:last-child{
+    align-self: flex-end;
+    transform: rotate(180deg);
+}
+
+.content {
+    display: flex;
+    align-items: center;
+    padding-left: 4px;
+}
+
+.scrollingContainer {
+  height: fit-content;
+  max-height: 96px;
+  overflow-y: auto;
+  border: 1px solid grey;
+  border-radius: 4px;
+  display: flex;
+  max-width: 128px;
+  flex-wrap: wrap;
+  flex-direction: row;
+  justify-content: space-between;
+  justify-items: center;
+  row-gap: 2px;
+  margin-left: 2px;
+  padding: 2px;
+  background-color: darkgray;
+}
+
+.scrollingContainer > * {
+    margin: 0;
+    padding: 0;
+}
+
+p {
+    margin: 0px;
+    font-size: 18px;
+}
+
+h1 {
+    text-align: center;
+    font-family: monospace;
+}
+
+h3 {
+    font-size: 18px;
 }

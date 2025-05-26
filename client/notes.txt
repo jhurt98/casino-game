@@ -24,13 +24,65 @@ final round = dealer doesnt have enough for another one. if it can give everyone
 
 UI/UX:
 
-- drag any cards from hand to table, or from table. 
-- potential matches glow
-- show opponents what card was used to pick up 
-- putting table cards together to show a special combo
-- making play, drag card from hand, make cards glow on hover, give
+x drag any cards from hand to table, or from table. 
+x potential matches glow
+x show opponents what card was used to pick up 
+x putting table cards together to show a special combo
+x making play, drag card from hand, make cards glow on hover, give
   prompt/dialoge
-- when you take cards: drag from hand to table, prompt shows up to pick up.
+x when you take cards: drag from hand to table, prompt shows up to pick up.
+x be able to stack and take with existing stacks on table, right now can only do
+  this with sums
+x distinguish from copy stakes and sum stacks
+x multiple copy cards in stack
+
+- multiple stack and takes in one turn ?
+- when picking up multiple stacks on table, should i make it so that we can drag
+  stacks, or make it so that when a player tries to pick one up, it offers them
+  to pick all of them up?
+- auto stack
+
 
 Server: 
 - implement game rooms
+
+GameEngine
+ - processes move
+ -- sets gameState.Phase = RoundOver... send this back to server ?
+
+Game Mechanics and Rules (mostly rules, idk what mechanics actually refer to
+tbh):
+some entities:
+- Deck
+- Players have a hand of cards, pile of cards
+- Table
+- Round
+
+at the game start: 
+- deal cards to table, and player, each get 3
+
+each turn:
+- a player must "make a play" with their hand
+- they can make the kinds of stacks i described "sum" or "duplicate"
+  - they can only make these stacks if they have another card in their hand that
+    matches the value of the stack: the summed value or the duplicate value
+  - rule: they can't make a sum stack on top of an existing
+    duplicate stack. they also can't make a duplicate stack on top of an
+    existing sum stack.
+- they can "take" a card or stack from the table with a matching card in their
+  had and pile them
+- if they can't do any of these, they must "toss" a card from their hand into
+  the table
+- in the same turn, the player can also make any number of valid "table moves"
+  - if they have the match in hand, make a "duplicate" stack
+  - if they have the match in hand, make a "sum" stack
+  - these stacks differ from player stacks in that you can create a sum stack
+    with an existing duplicate stack. so if the table has a stack [2,2,2: 2]
+    a card 3, and the player has a 5 in their hand, they can stack 3 on the
+    2 stack.
+  - they will eventually take all of the table moves with a matching card in
+    their hand. 
+  - right now, ive implemented the mechanic so that when a player drags a table
+    card over a potential match, they stack and take in one go, but i didn't
+    consider that they can make any number of these table moves. I'm trying to
+    think of a good way of expressing this mechanic or rule to the player

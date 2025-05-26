@@ -1,186 +1,194 @@
-import { useEffect, useRef } from "react";
-import type { GameState } from "./Game.tsx";
-import type { PlayingCard } from "./Game.tsx";
+import { useEffect, useRef, useState } from "react";
+import { useDrag } from "./useDrag.ts";
+import { useGameState } from "./useGameState.ts";
+import type { PlayingCard, CardStack } from "./types.ts";
+import { calculateCardStackRank } from "./types.ts";
+import { DragProvider } from "./DragContext.tsx";
 import Card from "./Card.tsx";
-function PlayingField({gameState, playerId}: {gameState: GameState, playerId: string|undefined}) {
+import "./Game.css";
+import { Move } from "./useGameStateWithWebSocket.ts";
 
-    const pos = useRef<{ top: number; left: number }>({
-        top: 0,
-        left: 0,
-    });
-    const dragStart = useRef<{ x: number; y: number } | null>(null);
-    const draggedCardRef = useRef<HTMLDivElement | null>(null);
-    const time = useRef<number>(0);
-    const tableCardsRef = useRef<Array<Element>>([]);
-    const overlappingCardRef = useRef<Element|null>(null);
-
-    function handleMouseDown(e: MouseEvent, cardRef: HTMLDivElement | null) {
-        e.preventDefault();
-        dragStart.current = { x: e.clientX, y: e.clientY };
-        window.addEventListener("mousemove", handleMouseMove);
-        window.addEventListener("mouseup", handleMouseUp);
-        if (cardRef) {
-            draggedCardRef.current = cardRef;
-            cardRef.style.zIndex = "100";
-        }       
-    }
-
-    function handleMouseMove(e: MouseEvent) {
-        if (!dragStart.current || !draggedCardRef.current) {
-            return;
-        }
-        e.preventDefault();
-        const dx = e.clientX - dragStart.current.x;
-        const dy = e.clientY - dragStart.current.y;
-        pos.current.left = pos.current.left + dx;
-        pos.current.top = pos.current.top + dy;
-        dragStart.current = { x: e.clientX, y: e.clientY };
-        if (draggedCardRef.current) {
-            draggedCardRef.current.style.transform = `translate(${pos.current.left}px, ${pos.current.top}px)`;
-        }       
-        detectCollisions();
-    }
-
-    function handleMouseUp() {
-        pos.current.left = 0;
-        pos.current.top = 0;
-        dragStart.current = null;
-        if (draggedCardRef.current) {
-            draggedCardRef.current.style.transform = `translate(${pos.current.left}px, ${pos.current.top}px)`;
-            draggedCardRef.current.style.zIndex = "0";
-            draggedCardRef.current = null;
-        }       
-        if (overlappingCardRef.current !== null) {
-            overlappingCardRef.current.style.border = "2px solid grey";
-            overlappingCardRef.current = null;
-        }
-    }
-
-    function detectCollisions() {
-        if (!draggedCardRef.current) return;
-        if (Date.now() - time.current < 16) return;
-        time.current = Date.now();
-        // loop through cards on the table...
-        if (tableCardsRef.current.length === 0) {
-            tableCardsRef.current = getTableCards();
-        }
-        const overlappingCards = [];
-        for (const tableCard of tableCardsRef.current) {
-            const tableCardRect = tableCard.getBoundingClientRect();
-            const draggedCardRect = draggedCardRef.current.getBoundingClientRect();
-            if (cardsAreOverlapping(tableCardRect, draggedCardRect)) {
-                overlappingCards.push(tableCard);
-            }
-        }
-        if (overlappingCards.length > 0) {
-            const result = dominantCard(overlappingCards, draggedCardRef.current.getBoundingClientRect());
-            if (result !== overlappingCardRef.current) {
-                if (overlappingCardRef.current !== null) {
-                    overlappingCardRef.current.style.border = "2px solid grey";
-                }
-                overlappingCardRef.current = result;
-                overlappingCardRef.current.style.border = "4px solid yellow";
-            }
-            //console.log(overlappingCardRef.current);
-        } else {
-            if (overlappingCardRef.current !== null) {
-                overlappingCardRef.current.style.border = "2px solid grey";
-                overlappingCardRef.current = null;
-            }
-        }
-
-    }
-
-    function cardsAreOverlapping(target: DOMRect, source: DOMRect) {
-        const [x1, y1, width1, height1] = [source.x, source.y, source.width, source.height];
-        const [x2, y2, width2, height2] = [target.x, target.y, target.width, target.height];
-        return !((x1 > x2 + width2) || (x1 + width1 < x2) || (y1 > y2 + height2) || (y1 + height1 < y2));
-    }
-
-    function getOverlappedArea(target: DOMRect, source: DOMRect) {
-        let width, height;
-        if (source.x >= target.x) {
-            width = target.width - (source.x - target.x);
-        } else {
-            width = (source.x + source.width) - target.x;
-        }
-        if (source.y >= target.y) {
-            height = target.height - (source.y - target.y);
-        } else {
-            height = (source.y + source.height) - target.y;
-        }
-        return width * height;
-    }
-
-    function dominantCard(targets: Array<Element>, source: DOMRect) {
-        let result = null;
-        let maxArea = 0;
-        for (const target of targets) {
-            const area = getOverlappedArea(target.getBoundingClientRect(), source); 
-            if (area > maxArea) {
-                result = target;
-                maxArea = area;
-            }
-        }
-        return result;
-    }
-
-    useEffect(() => {
-        return () => {
-            window.removeEventListener("mousemove", handleMouseMove);
-            window.removeEventListener("mouseup", handleMouseUp);
-        };
-    }, []);
+function PlayingField() {
+    const { gameState, playerId } = useGameState();
 
     function createCardComponents(cards: Array<PlayingCard>) {
         return cards.map((card) => {
-            const style = { "margin": "4px", "position": "relative" };
+            const id = card.suit + card.rank;
             return (
-                <div
-                    style={style}
-                    key={card.suit + card.rank}
-                >
-                    {createCardComponent(card)}
+                <div style={{marginRight: "4px" }} key={id}>
+                <Card
+                card={card}
+                showBottom={true}
+                />
                 </div>
             );
         });
     }
 
-    function createCardComponent(card: PlayingCard) {
-        return <Card card={card} handleMouseDown={handleMouseDown}/>;
-    }
-
-    function getTableCards() {
-        const tableDiv = document.getElementById("tableCards");
-        const childrenArray = Array.from(tableDiv.children);
-        return childrenArray.map(child => child.children[0]);
-    }
-
-    const currentPlayer = gameState.players.find(
-        (player) => player.id === playerId,
-    ) || {
+    const currentPlayer = gameState.players.find((player) => player.id === playerId) || {
         hand: [],
         pile: [],
         points: 0,
         id: "undefined",
     };
-    const { hand: currentHand, pile: currentPile } = currentPlayer;
+    const { hand: playerHand, pile: playerPile} = currentPlayer;
+    const isPlayersTurn = gameState.turn.currentPlayerId === playerId;
 
     return (
-        <>
-        <div className="table" id="tableCards">
-            {createCardComponents(gameState.table)}
+        <DragProvider isPlayersTurn={isPlayersTurn}>
+        <Table cardStacks={gameState.table} />
+        <MovePromptModal />
+        <div style={{ display: "flex", marginBottom:"96px"}}>
+        <Hand hand={playerHand} isPlayersTurn={isPlayersTurn}/>
+        <Pile pile={playerPile}/>
         </div>
-        <div style={{ display: "flex" }}>
-            <div className="playerHand">
-                {createCardComponents(currentHand)}
-            </div>
-        <div className="playerPile">
-        {createCardComponents(currentPile)}
-        </div>
-        </div>
-        </>
+        </DragProvider>
     );
 }
 
+function Table({cardStacks}: {cardStacks: Array<CardStack>}) {
+    const tableRef = useRef<HTMLDivElement|null>(null);
+    const { isTableOverlapped, registerTableRef } = useDrag();
+    useEffect(() => {
+        registerTableRef(tableRef.current);
+        return () => registerTableRef(null);
+    }, [registerTableRef]);
+
+    const tableStyle = {
+        border: isTableOverlapped ? "2px dashed yellow" : "2px solid darkgreen"
+    };
+    return (
+        <div className="table" style={tableStyle} ref={tableRef}>
+        { cardStacks.map((stack,i) => <CardStack key={i} cardStack={stack} />) }
+        </div>
+    );
+}
+
+function CardStack({cardStack}: {cardStack: CardStack}) {
+    const cardStackRef = useRef<HTMLDivElement | null>(null);
+    const { overlappedCardStack, registerCardStackRef, draggedCardStack, handleMouseDown } = useDrag();
+    const isDragging = draggedCardStack === cardStack;
+    useEffect(()=> {
+        if (registerCardStackRef && cardStackRef.current) {
+            registerCardStackRef(cardStack, cardStackRef.current);
+        }
+        return () => {
+            registerCardStackRef(cardStack, null);
+        }
+    },[cardStack, registerCardStackRef])
+
+    function mouseDown(event: React.MouseEvent<HTMLDivElement>) {
+        if (cardStackRef.current) {
+            console.log("card stack tryna drag?");
+            handleMouseDown(event, cardStackRef.current, cardStack);
+        }
+    }
+
+    const topCard = computeTopCard();
+    if (cardStack.cards.length === 0) {
+        return <></>;
+    }
+
+    function computeTopCard() {
+        if (cardStack.type === "single") {
+            return cardStack.cards[0];
+        }
+        const rank = calculateCardStackRank(cardStack);
+        return { suit: cardStack.type, rank: rank, value: 0, location: "table" } as PlayingCard;
+    }
+
+    const cursorStyle = (()=>{
+        if (isDragging) {
+            return "grabbing";
+        }
+        return "grab";
+    })();
+
+    const isOverlapped = overlappedCardStack === cardStack && overlappedCardStack !== draggedCardStack;
+    const isMultiCard = cardStack.cards.length > 1;
+
+    const style = { cursor: cursorStyle,boxShadow: isOverlapped ? "0px 0px 8px 2px white" : "none"}
+    return (
+        <div ref={cardStackRef} className="cardStack" style={style} onMouseDown={mouseDown}>
+        { isMultiCard ? 
+        cardStack.cards.map((card) => 
+            <Card
+            card={card}
+            showBottom={false}
+            key={card.suit+card.rank}
+            />) : null 
+        }
+        <Card
+            card={topCard}
+            showBottom={true}
+        />
+        </div>
+    ); 
+}
+
+//function makeCardStack(cards: Array<PlayingCard>): CardStack {
+//    return { cards: cards };
+//}
+function MovePromptModal()  {
+    const { getPossibleMoves } = useGameState();
+    const { showMovePrompt, closeModal, draggedCardStack, overlappedCardStack, isTableOverlapped } = useDrag();
+    const moves = getPossibleMoves(draggedCardStack, overlappedCardStack, isTableOverlapped);
+    function clickHandler(move: Move) {
+        return ()=>{
+            move.handler();
+            closeModal();
+        }
+    }
+    return (
+            <div className="playModal" style={{ display: showMovePrompt ? "flex" : "none" }}>
+                { moves.map(move => <button onClick={clickHandler(move)} key={move.type}>{move.title}</button>) }
+                <button onClick={closeModal} >close</button>
+            </div>
+    );
+}
+
+function Hand({hand, isPlayersTurn}: {hand: Array<PlayingCard>, isPlayersTurn: boolean}) {
+    return (
+        <div className="playerHand" style={{border:isPlayersTurn? "2px solid grey" : "none"}} >
+        { hand.map((card,i) => <CardStack key={i} cardStack={{cards:[card], type:"single"}} />) }
+        </div>
+    );
+}
+
+function Pile({pile}: {pile: Array<PlayingCard>}) {
+    const [showScrollingContainer, setShowScrollingContainer] = useState<boolean>(false);
+    function scrollingContainer() {
+        return (
+            <div className="scrollingContainer" >
+                {pile.map((card) => {
+                    /* this is probably not great but whatever */
+                    return <Card card={card} className="small" showBottom={true}></Card>;
+                })}
+            </div>
+        );
+    }
+    
+    //const cursorStyle = { cursor: showScrollingContainer ? "zoom-out" : "zoom-in" }
+    return (
+        <div className="playerPile" onClick={()=> {setShowScrollingContainer((prev)=>!prev)}} >
+        { pile.length > 0 && <Card card={pile[pile.length-1]} showBottom={true} /> }
+        { showScrollingContainer && scrollingContainer() }
+        </div>
+    );
+}
+
+//const mockCards: PlayingCard[] = [
+//  { suit: 'hearts', rank: '5', value: 1, location: 'pile' },
+//  { suit: 'spades', rank: 'K', value: 1, location: 'pile' },
+//  { suit: 'clubs', rank: 'A', value: 1, location: 'pile' },
+//  { suit: 'diamonds', rank: '9', value: 1, location: 'pile' },
+//  { suit: 'hearts', rank: 'Q', value: 1, location: 'pile' },
+//  { suit: 'spades', rank: '3', value: 1, location: 'pile' },
+//  { suit: 'clubs', rank: '10', value: 1, location: 'pile' },
+//  { suit: 'diamonds', rank: '6', value: 1, location: 'pile' },
+//  { suit: 'hearts', rank: '2', value: 1, location: 'pile' },
+//  { suit: 'clubs', rank: 'J', value: 1, location: 'pile' },
+//  { suit: 'spades', rank: '7', value: 1, location: 'pile' },
+//  { suit: 'diamonds', rank: 'A', value: 1, location: 'pile' }
+//];
 export default PlayingField;
