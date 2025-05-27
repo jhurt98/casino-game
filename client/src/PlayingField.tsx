@@ -2,7 +2,6 @@ import { useEffect, useRef, useState } from "react";
 import { useDrag } from "./useDrag.ts";
 import { useGameState } from "./useGameState.ts";
 import type { PlayingCard, CardStack } from "./types.ts";
-import { calculateCardStackRank } from "./types.ts";
 import { DragProvider } from "./DragContext.tsx";
 import Card from "./Card.tsx";
 import "./Game.css";
@@ -10,20 +9,6 @@ import { Move } from "./useGameStateWithWebSocket.ts";
 
 function PlayingField() {
     const { gameState, playerId } = useGameState();
-
-    function createCardComponents(cards: Array<PlayingCard>) {
-        return cards.map((card) => {
-            const id = card.suit + card.rank;
-            return (
-                <div style={{marginRight: "4px" }} key={id}>
-                <Card
-                card={card}
-                showBottom={true}
-                />
-                </div>
-            );
-        });
-    }
 
     const currentPlayer = gameState.players.find((player) => player.id === playerId) || {
         hand: [],
@@ -46,24 +31,6 @@ function PlayingField() {
     );
 }
 
-function Table({cardStacks}: {cardStacks: Array<CardStack>}) {
-    const tableRef = useRef<HTMLDivElement|null>(null);
-    const { isTableOverlapped, registerTableRef } = useDrag();
-    useEffect(() => {
-        registerTableRef(tableRef.current);
-        return () => registerTableRef(null);
-    }, [registerTableRef]);
-
-    const tableStyle = {
-        border: isTableOverlapped ? "2px dashed yellow" : "2px solid darkgreen"
-    };
-    return (
-        <div className="table" style={tableStyle} ref={tableRef}>
-        { cardStacks.map((stack,i) => <CardStack key={i} cardStack={stack} />) }
-        </div>
-    );
-}
-
 function CardStack({cardStack}: {cardStack: CardStack}) {
     const cardStackRef = useRef<HTMLDivElement | null>(null);
     const { overlappedCardStack, registerCardStackRef, draggedCardStack, handleMouseDown } = useDrag();
@@ -79,7 +46,6 @@ function CardStack({cardStack}: {cardStack: CardStack}) {
 
     function mouseDown(event: React.MouseEvent<HTMLDivElement>) {
         if (cardStackRef.current) {
-            console.log("card stack tryna drag?");
             handleMouseDown(event, cardStackRef.current, cardStack);
         }
     }
@@ -93,7 +59,7 @@ function CardStack({cardStack}: {cardStack: CardStack}) {
         if (cardStack.type === "single") {
             return cardStack.cards[0];
         }
-        const rank = calculateCardStackRank(cardStack);
+        const rank = cardStack.rank;
         return { suit: cardStack.type, rank: rank, value: 0, location: "table" } as PlayingCard;
     }
 
@@ -126,6 +92,39 @@ function CardStack({cardStack}: {cardStack: CardStack}) {
     ); 
 }
 
+function Table({cardStacks}: {cardStacks: Array<CardStack>}) {
+    const tableRef = useRef<HTMLDivElement|null>(null);
+    const { isTableOverlapped, registerTableRef } = useDrag();
+    useEffect(() => {
+        registerTableRef(tableRef.current);
+        return () => registerTableRef(null);
+    }, [registerTableRef]);
+
+    const tableStyle = {
+        border: isTableOverlapped ? "2px dashed yellow" : "2px solid darkgreen"
+    };
+    return (
+        <div className="table-container">
+        <TableControls/>
+        <div className="table" style={tableStyle} ref={tableRef}>
+        { cardStacks.map((stack,i) => <CardStack key={i} cardStack={stack} />) }
+        </div>
+        </div>
+    );
+}
+
+function TableControls() {
+    const { tableHistory, undoTableHistory, resetTableHistory } = useGameState();
+
+    const display = { display: tableHistory.length > 1 ? "flex" : "none" };
+    return (
+        <div className="tableControls" style={display}>
+        <button onClick={undoTableHistory}>&#x238C;</button>
+        <button onClick={resetTableHistory}>&#10006;</button>
+        </div>
+    );
+}
+
 //function makeCardStack(cards: Array<PlayingCard>): CardStack {
 //    return { cards: cards };
 //}
@@ -150,7 +149,7 @@ function MovePromptModal()  {
 function Hand({hand, isPlayersTurn}: {hand: Array<PlayingCard>, isPlayersTurn: boolean}) {
     return (
         <div className="playerHand" style={{border:isPlayersTurn? "2px solid grey" : "none"}} >
-        { hand.map((card,i) => <CardStack key={i} cardStack={{cards:[card], type:"single"}} />) }
+        { hand.map((card,i) => <CardStack key={i} cardStack={{cards:[card], type:"single", rank: card.rank}} />) }
         </div>
     );
 }

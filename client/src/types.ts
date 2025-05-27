@@ -8,6 +8,7 @@ export interface PlayingCard {
 export interface CardStack {
     cards: Array<PlayingCard>;
     type: string;
+    rank: string;
 }
 
 export interface GameState {

@@ -1,4 +1,4 @@
-import { CardStack, PlayingCard, calculateCardStackRank } from "../types.ts";
+import { CardStack, PlayingCard } from "../types.ts";
 import { MoveType } from "../useGameStateWithWebSocket.ts";
     /*
         * return array of possible move types. read in onMouseUp: if not empty, showModal with movetypes
@@ -13,7 +13,7 @@ export function determinePossibleMoves(hand: Array<PlayingCard>,draggedCardStack
     if (from === "hand") {
         return getPlayerMoveTypes(hand, draggedCardStack, overlappedCardStack, isTableOverlapped);
     } else {
-        return getTableMoveTypes(hand, draggedCardStack, overlappedCardStack);
+        return getTableMoveTypes(draggedCardStack, overlappedCardStack);
     }
 }
 
@@ -38,7 +38,7 @@ function getPlayerMoveTypes(hand: Array<PlayingCard>, draggedCardStack: CardStac
     return possiblePlayerMoveTypes;
 }
 
-function getTableMoveTypes(hand: Array<PlayingCard>, draggedCardStack: CardStack, overlappedCardStack: CardStack | null) {
+function getTableMoveTypes(draggedCardStack: CardStack, overlappedCardStack: CardStack | null) {
     const possibleTableMoveTypes: Array<MoveType> = [];
     if (overlappedCardStack === null) {
         return possibleTableMoveTypes;
@@ -51,18 +51,20 @@ function getTableMoveTypes(hand: Array<PlayingCard>, draggedCardStack: CardStack
     if (to !== "table") {
         return possibleTableMoveTypes;
     }
-    if (handHasSumMatch(draggedCardStack, overlappedCardStack, hand)) {
-        possibleTableMoveTypes.push(MoveType.TableStackSum);
-    }
-    if (handHasDuplicateMatch(draggedCardStack, overlappedCardStack, hand)) {
+    const draggedCardStackRank = draggedCardStack.rank;
+    const overlappedCardStackRank = overlappedCardStack.rank;
+    if (draggedCardStackRank === overlappedCardStackRank) {
         possibleTableMoveTypes.push(MoveType.TableStackDup);
+    }
+    if (!isFaceRank(draggedCardStackRank) && !isFaceRank(overlappedCardStackRank)) {
+        possibleTableMoveTypes.push(MoveType.TableStackSum);
     }
     return possibleTableMoveTypes;
 }
 
 function handHasDuplicateMatch(draggedCardStack: CardStack, cardStack: CardStack, hand: Array<PlayingCard>) {
-    const draggedStackRank = calculateCardStackRank(draggedCardStack);
-    const overlappedStackRank = calculateCardStackRank(cardStack);
+    const draggedStackRank = draggedCardStack.rank;
+    const overlappedStackRank = cardStack.rank;
     if (draggedStackRank !== overlappedStackRank) {
         return false
     }
@@ -78,12 +80,12 @@ function handHasDuplicateMatch(draggedCardStack: CardStack, cardStack: CardStack
 }
 
 function cardAndStackHaveEqualRank(source: CardStack, target: CardStack) {
-    return calculateCardStackRank(source) === calculateCardStackRank(target);
+    return source.rank === target.rank;
 }
 
 function handHasSumMatch(draggedCardStack: CardStack, cardStack: CardStack, hand: Array<PlayingCard>) {
-    const draggedStackRank = calculateCardStackRank(draggedCardStack);
-    const stackRank = calculateCardStackRank(cardStack); 
+    const draggedStackRank = draggedCardStack.rank;
+    const stackRank = cardStack.rank; 
     const sum = Number(draggedStackRank) + Number(stackRank);
     if (Number.isNaN(sum)) {
         return false;
@@ -95,5 +97,9 @@ function handHasSumMatch(draggedCardStack: CardStack, cardStack: CardStack, hand
         }
     }
     return false;
+}
+
+function isFaceRank(rank: string) {
+    return rank === "Q" || rank === "K" || rank === "J";
 }
 

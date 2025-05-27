@@ -49,7 +49,7 @@ function normalizeCards(data: Array<PlayingCard>, location: string): void {
 function useGameStateWithWebsocket() {
     const [gameState, setGameState] = useState<GameState>(defaultGameState);
     const [playerId, setPlayerId] = useState<string>();
-    const [tableMoveHistory, setTableMoveHistory] = useState<Array<Array<CardStack>>>([]);
+    const [tableHistory, setTableHistory] = useState<Array<Array<CardStack>>>([]);
     const socketRef = useRef<WebSocket | null>(null);
     const currentPlayer = gameState.players.find((player) => player.id === playerId) || {
         hand: [],
@@ -93,7 +93,7 @@ function useGameStateWithWebsocket() {
                 //console.log(message.data);
                 players.forEach((player) => { normalizeCards(player.hand, "hand"); normalizeCards(player.pile, "pile");});
                 table.forEach((cardStack) => {normalizeCards(cardStack.cards, "table");});
-                setTableMoveHistory([table]);
+                setTableHistory([table]);
                 const newGameState: GameState = { deckLen: deckLen, table: table, turn: turn, players: players, phase: phase, } as GameState;
                 setGameState(newGameState);
             }
@@ -171,55 +171,29 @@ function useGameStateWithWebsocket() {
         } as Message;
     }
 
-    function handleTableStack(draggedCardStack: CardStack, overlappedCardStack: CardStack, cardStackType: string) {
-        console.log("dragged cardstack:", JSON.stringify(draggedCardStack), "overlapped cardstack:", JSON.stringify(overlappedCardStack));
-        overlappedCardStack.type = cardStackType;
-        const newTableHistory = [...tableMoveHistory];
-        const newTable = [...newTableHistory[newTableHistory.length-1]];
-        const updatedCardStackIndex = newTable.findIndex(tableStack => tableStack === overlappedCardStack);
-        const newCardStack = newTable[updatedCardStackIndex];
+    function handleTableStack(draggedCardStack: CardStack, overlappedCardStack: CardStack, stackType: string) {
+        const targetCardStackCopy = {
+            ...overlappedCardStack,
+            cards: [...overlappedCardStack.cards, ...draggedCardStack.cards],
+            type: stackType,
+            rank: deriveNewCardRank(draggedCardStack, overlappedCardStack, stackType),
+        };
+
+        const newTable = [...tableHistory[tableHistory.length-1]];
         const cardStackToRemove = newTable.findIndex(tableStack => tableStack === draggedCardStack);
-        newCardStack.cards.push(...draggedCardStack.cards);
+        const targetIndex = newTable.findIndex(stack => stack === overlappedCardStack);
+
         newTable.splice(cardStackToRemove, 1);
-        //autoCollapseEqualStacks(newCardStack, newTable);
-        console.log("new table", newTable);
+        newTable[targetIndex] = targetCardStackCopy;
+
         setGameState({...gameState, table: newTable});
-        setTableMoveHistory([...tableMoveHistory, newTable]);
+        setTableHistory([...tableHistory, newTable]);
     }
 
     function stackForLater(draggedCard: PlayingCard, overlappedCardStack: CardStack, cardStackType: string) {
         overlappedCardStack.type = cardStackType;
         sendGameMessage(createStackForLaterMessage(draggedCard, overlappedCardStack));
     }
-
-    //function autoCollapseEqualStacks(newCardStack: CardStack, table: CardStack[]) {
-    //    // stack the new card stack on top of an existing matching card stack 
-    //    console.log("table before auto collapsing", JSON.stringify(table), "new card stack just made", newCardStack);
-    //    let i = 0, j = 0;
-    //    const targetRank = calculateCardStackRank(newCardStack);
-    //    let sourceRank = "";
-    //    for (const cardStack of table) {
-    //        if (cardStack === newCardStack) {
-    //            j = i;
-    //            i++;
-    //            continue;
-    //        }
-    //        sourceRank = calculateCardStackRank(cardStack);
-    //        console.log(sourceRank);
-    //        if (cardStack.type === "dup" && sourceRank === targetRank) {
-    //            break;
-    //        }
-    //        i++;
-    //    }
-    //    if (i === table.length) {
-    //        return;
-    //    }
-    //    for (const card of newCardStack.cards) {
-    //        table[i].cards.push(card);
-    //    }
-    //    console.log("j, index of card stack that should be \"removed\"", j);
-    //    table.splice(j, 1);
-    //}
 
     function createStackForLaterMessage(draggedCard: PlayingCard, overlappedCardStack: CardStack) {
         return {
@@ -246,6 +220,25 @@ function useGameStateWithWebsocket() {
             },
         };
         socketRef.current.send(JSON.stringify(message));
+    }
+
+    function undoTableHistory() {
+        // assumption: only called when tableHistory.length > 1. enforced by UI. see TableController in PlayingField.tsx
+        const newTableHistory = [...tableHistory];
+        newTableHistory.pop();
+        
+        const newTable = newTableHistory[newTableHistory.length-1];
+        const newGameState = { ...gameState, table: newTable };
+        setGameState(newGameState);
+        setTableHistory(newTableHistory);
+    }
+
+    function resetTableHistory() {
+        const newTableHistory = [tableHistory[0]];
+        const newTable = [...tableHistory[0]];
+        const newGameState = { ...gameState, table: newTable };
+        setTableHistory(newTableHistory);
+        setGameState(newGameState);
     }
 
     function getPossibleMoves(
@@ -326,8 +319,6 @@ function useGameStateWithWebsocket() {
                     break;
 
                 case MoveType.PlayerStackDup:
-                    if (overlappedCardStack === null) break;
-                    overlappedCardStack.type = "dup";
                     moves.push({
                         type: moveType,
                         title: "Stack Dup for Later",
@@ -346,27 +337,6 @@ function useGameStateWithWebsocket() {
         return moves;
     }
 
-    //function getSumMatchingHandCards(
-    //    draggedCard: PlayingCard | null,
-    //    overlappedCardStack: CardStack | null,
-    //) {
-    //    if (draggedCard === null || overlappedCardStack === null) {
-    //        return [];
-    //    }
-    //    const { hand: playerHand } = currentPlayer;
-    //    const stackRank = getCardStackRank(overlappedCardStack);
-    //    const sum = (Number(draggedCard.rank) + Number(stackRank)).toString();
-    //    return playerHand.filter((card) => card.rank === sum);
-    //}
-    //
-    //function getMatchingHandCards(draggedCard: PlayingCard | null) {
-    //    if (draggedCard === null) {
-    //        return [];
-    //    }
-    //    const { hand: playerHand } = currentPlayer;
-    //    return playerHand.filter((card) => card.rank === draggedCard.rank);
-    //}
-
     const data: GameStateContextType = {
         gameState: gameState,
         playerId: playerId,
@@ -376,6 +346,9 @@ function useGameStateWithWebsocket() {
         handleReadyAck: handleReadyAck,
         getPossibleMoves: getPossibleMoves,
         skipTurn: skipTurn,
+        tableHistory: tableHistory,
+        undoTableHistory: undoTableHistory,
+        resetTableHistory: resetTableHistory,
     };
 
     return data;
@@ -394,5 +367,23 @@ function functionWithNonNullArguments(f: (...args: any[]) => void,
     return () => {
         f(...args);
     };
+}
+
+/* todo: 
+* implement Ace = 1
+* guard sums > 10 */
+function deriveNewCardRank(source: CardStack, target: CardStack, stackType: string) {
+    if (stackType === "sum") {
+        const sum = Number(source.rank) + Number(target.rank);
+        if (Number.isNaN(sum)) { 
+            console.error("ermmmm this shouldn't even happen");
+            return "";
+        }
+        return String(sum);
+    }
+    if (stackType === "dup") {
+        return target.rank;
+    }
+    return source.rank;
 }
 export default useGameStateWithWebsocket;

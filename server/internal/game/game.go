@@ -33,6 +33,7 @@ type Card struct {
 type CardStack struct {
 	Cards []Card `json:"cards"`
     Type  string `json:"type"`
+    Rank  string `json:"rank"`
 }
 
 type Player struct {
@@ -295,7 +296,7 @@ func (e *Engine) passToTable(ncards int) {
 		m := len(deck)
 		card := deck[m-1]
 		deck = deck[:m-1]
-		table = append(table, CardStack{Cards: []Card{card}, Type: "single"})
+        table = append(table, CardStack{Cards: []Card{card}, Type: "single", Rank:card.Rank})
 	}
 	e.State.Table = table
 	e.State.Deck = deck
@@ -329,7 +330,7 @@ func (e *Engine) tossCards(playerId string, cards []Card) {
 	}
 
 	for _, c := range cards {
-		e.State.Table = append(e.State.Table, CardStack{[]Card{c},"single"})
+		e.State.Table = append(e.State.Table, CardStack{[]Card{c},"single",c.Rank})
 		player.Hand = slices.DeleteFunc(player.Hand, func(handcard Card) bool {
 			return handcard == c
 		})
@@ -351,7 +352,6 @@ func (e *Engine) stackForLater(playerId string, cards []Card, cardStack CardStac
 	if err != nil {
 		fmt.Printf("%v\n", err)
 	}
-    fmt.Printf("cardStack: %+v\n", cardStack)
 	for i, tableStack := range e.State.Table {
 		if cardStack.isEqual(tableStack) {
 			e.State.Table[i].Cards = append(tableStack.Cards, cards...)

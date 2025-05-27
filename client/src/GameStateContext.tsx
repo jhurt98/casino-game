@@ -11,6 +11,9 @@ export interface GameStateContextType {
     handleReadyAck: ()=>void;
     getPossibleMoves: (draggedCardStack: CardStack | null, overlappedCardStack: CardStack | null, isTableOverlapped: boolean)=>Array<Move>;
     skipTurn: ()=>void;
+    tableHistory: Array<Array<CardStack>>;
+    undoTableHistory: ()=>void;
+    resetTableHistory: ()=>void;
 }
 
 export const GameStateContext = createContext<GameStateContextType | undefined>(undefined);

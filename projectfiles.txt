@@ -1,0 +1,56 @@
+.
+├── client
+│   ├── 2x.webp
+│   ├── eslint.config.js
+│   ├── index.html
+│   ├── notes.txt
+│   ├── package.json
+│   ├── public
+│   │   └── vite.svg
+│   ├── README.md
+│   ├── src
+│   │   ├── App.css
+│   │   ├── App.tsx
+│   │   ├── assets
+│   │   │   └── react.svg
+│   │   ├── Card.tsx
+│   │   ├── DragContext.tsx
+│   │   ├── Game.css
+│   │   ├── GameStateContext.tsx
+│   │   ├── Game.tsx
+│   │   ├── index.css
+│   │   ├── Lobby.css
+│   │   ├── Lobby.tsx
+│   │   ├── main.tsx
+│   │   ├── PlayingField.tsx
+│   │   ├── svgStuff.js
+│   │   ├── types.ts
+│   │   ├── useDrag.ts
+│   │   ├── useGameState.ts
+│   │   ├── useGameStateWithWebSocket.ts
+│   │   ├── utils
+│   │   │   ├── collisionUtils.ts
+│   │   │   └── moveDecider.ts
+│   │   └── vite-env.d.ts
+│   ├── tsconfig.app.json
+│   ├── tsconfig.json
+│   ├── tsconfig.node.json
+│   └── vite.config.ts
+├── projectfiles.txt
+└── server
+    ├── cmd
+    │   └── server
+    │       └── main.go
+    ├── go.mod
+    ├── internal
+    │   ├── game
+    │   │   ├── game.go
+    │   │   └── game_test.go
+    │   └── server
+    │       └── server.go
+    ├── server
+    └── tests
+        └── integration
+            └── server_test.go
+
+14 directories, 40 files
