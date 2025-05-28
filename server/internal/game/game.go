@@ -6,6 +6,7 @@ import (
 	"math/rand/v2"
 	"slices"
 	"sync"
+    "strconv"
 )
 
 type GamePhase int
@@ -356,6 +357,7 @@ func (e *Engine) stackForLater(playerId string, cards []Card, cardStack CardStac
 		if cardStack.isEqual(tableStack) {
 			e.State.Table[i].Cards = append(tableStack.Cards, cards...)
             e.State.Table[i].Type = cardStack.Type
+            e.State.Table[i].Rank = deriveNewRank(cards[0], cardStack)
 		}
 	}
 	for _, c := range cards {
@@ -463,6 +465,18 @@ func cardStackHasCard(cardStack CardStack, card Card) bool {
 		}
 	}
 	return false
+}
+
+func deriveNewRank(card Card, cardStack CardStack) string {
+    if cardStack.Type == "sum" {
+        a, errA := strconv.Atoi(card.Rank)
+        b, errB := strconv.Atoi(cardStack.Rank)
+        if errA != nil || errB != nil {
+            fmt.Errorf("attempt to stack cards with invalid ranks")
+        }
+        return strconv.Itoa(a+b)
+    }
+    return cardStack.Rank
 }
 
 func (source CardStack) isEqual(target CardStack) bool {

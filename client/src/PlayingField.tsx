@@ -141,7 +141,7 @@ function MovePromptModal()  {
     return (
             <div className="playModal" style={{ display: showMovePrompt ? "flex" : "none" }}>
                 { moves.map(move => <button onClick={clickHandler(move)} key={move.type}>{move.title}</button>) }
-                <button onClick={closeModal} >close</button>
+                <button onClick={closeModal} >Close</button>
             </div>
     );
 }

@@ -109,13 +109,17 @@
     padding-left: 32px;
     padding-right: 32px;
     border-radius: 16px;
+    align-items: center;
 }
 
 .playModal button {
+    cursor: pointer;
     width: fit-content;
     margin-top: 0px;
     margin-right:8px;
+    height: 32px;
 }
+
 .playModal button:last-child{
     margin-right:0px;
 }
@@ -173,6 +177,7 @@ table {
     display: flex;
     align-self: flex-end;
     margin-bottom: 4px;
+    position: absolute;
 }
 
 .table-container {

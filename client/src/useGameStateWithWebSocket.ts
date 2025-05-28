@@ -183,8 +183,8 @@ function useGameStateWithWebsocket() {
         const cardStackToRemove = newTable.findIndex(tableStack => tableStack === draggedCardStack);
         const targetIndex = newTable.findIndex(stack => stack === overlappedCardStack);
 
-        newTable.splice(cardStackToRemove, 1);
         newTable[targetIndex] = targetCardStackCopy;
+        newTable.splice(cardStackToRemove, 1);
 
         setGameState({...gameState, table: newTable});
         setTableHistory([...tableHistory, newTable]);
@@ -262,7 +262,7 @@ function useGameStateWithWebsocket() {
                 case MoveType.Take:
                     moves.push({
                         type: moveType,
-                        title: "take",
+                        title: "Take",
                         handler: functionWithNonNullArguments(
                             handleTakeCards,
                             draggedCardStack.cards[0],
