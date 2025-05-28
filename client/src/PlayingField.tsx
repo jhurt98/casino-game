@@ -161,7 +161,7 @@ function Pile({pile}: {pile: Array<PlayingCard>}) {
             <div className="scrollingContainer" >
                 {pile.map((card) => {
                     /* this is probably not great but whatever */
-                    return <Card card={card} className="small" showBottom={true}></Card>;
+                    return <Card key={"pile"+card.suit+card.rank}card={card} className="small" showBottom={true}></Card>;
                 })}
             </div>
         );
