@@ -472,7 +472,7 @@ func deriveNewRank(card Card, cardStack CardStack) string {
         a, errA := strconv.Atoi(card.Rank)
         b, errB := strconv.Atoi(cardStack.Rank)
         if errA != nil || errB != nil {
-            fmt.Errorf("attempt to stack cards with invalid ranks")
+            fmt.Printf("attempt to stack cards with invalid ranks")
         }
         return strconv.Itoa(a+b)
     }

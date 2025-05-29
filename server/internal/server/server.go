@@ -19,25 +19,34 @@ type GameMessage struct {
 }
 
 type Server struct {
-	Engine      *game.Engine
 	Connections map[string]*websocket.Conn
-	mu          sync.Mutex
 	router      *http.ServeMux
+    rooms map[string]*Room
+	mu          sync.Mutex
+}
+
+type Room struct {
+    ID     string
+    Engine *game.Engine
+    mu     sync.Mutex
+    players map[string]*websocket.Conn
     acks map[string]bool
     acksMu sync.Mutex
 }
 
 func NewServer() *Server {
 	return &Server{
-		Engine:      game.NewEngine(),
 		Connections: make(map[string]*websocket.Conn),
 		router:      http.NewServeMux(),
+        rooms:       make(map[string]*Room),
 	}
 }
 
 func (s *Server) SetupRoutes() {
-	s.router.HandleFunc("/game", s.GameHandler)
+	s.router.HandleFunc("/game/{roomId}/{playerId}", s.GameHandler)
 	s.router.HandleFunc("/test", s.testHandler)
+    s.router.HandleFunc("/createRoom", s.CreateRoom)
+    s.router.HandleFunc("POST /join/{roomId}", s.JoinRoom)
 }
 
 func (s *Server) Handler() http.Handler {
@@ -54,7 +63,54 @@ func (s *Server) Start() {
 	}
 }
 
+func (s *Server) CreateRoom(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Access-Control-Allow-Origin", "http://localhost:5173")
+    newRoomID := generateRoomID()
+    s.mu.Lock()
+    if _, in := s.rooms[newRoomID]; in {
+        fmt.Fprintf(w, "room already exists")
+        return
+    }
+    s.rooms[newRoomID] = &Room{ID: newRoomID, players: make(map[string]*websocket.Conn), Engine: game.NewEngine()} 
+    s.mu.Unlock()
+    fmt.Fprintf(w, "generated id: %v\n", s.rooms[newRoomID])
+}
+
+// POST /join/{roomId}
+func (s *Server) JoinRoom(w http.ResponseWriter, r *http.Request) {
+    roomId := r.PathValue("roomId")
+    fmt.Printf("roomId: %v\n", roomId)
+    if roomId == "" {
+        http.Error(w, "Room ID required.", http.StatusBadRequest)
+        return
+    }
+    room, in := s.rooms[roomId]
+    if !in {
+        http.Error(w, "room does not exist", http.StatusNotFound)
+        return
+    }
+    room.mu.Lock()
+    playerId := generatePlayerID()
+    room.players[playerId] = nil
+    room.mu.Unlock()
+    fmt.Fprint(w, playerId)
+}
+
+// ws /gameconnect/{roomId}/{playerId} 
 func (s *Server) GameHandler(w http.ResponseWriter, r *http.Request) {
+    roomId := r.PathValue("roomId")
+    playerId := r.PathValue("playerId")
+    room, in := s.rooms[roomId]
+    if !in {
+        http.Error(w, "room does not exist", http.StatusNotFound)
+        return
+    }
+    _,in = room.players[playerId]
+    if !in {
+        http.Error(w, "player does not exist", http.StatusNotFound)
+        return
+    }
+
 	var upgrader = websocket.Upgrader{
 		ReadBufferSize:  1024,
 		WriteBufferSize: 1024,
@@ -62,131 +118,126 @@ func (s *Server) GameHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	conn, err := upgrader.Upgrade(w, r, nil)
-	defer conn.Close()
-
 	if err != nil {
 		fmt.Printf("failed upgrading connection from %v\n%v\n", r, err)
 		return
 	}
 
-	s.mu.Lock()
-	playerId := generatePlayerID()
-	s.Connections[playerId] = conn
-	s.printConnections()
-	s.mu.Unlock()
+	defer conn.Close()
+    room.mu.Lock()
+    room.players[playerId] = conn
+    room.handleJoin(playerId)
+    room.mu.Unlock()
 
 	fmt.Println("opened ws with", r.Header.Get("Origin"))
-
+    
 	// is this infinite loop good? is the err case sufficient to make sure it closes properly???
 	for {
 		_, message, err := conn.ReadMessage()
-		if err = s.checkError(err, playerId); err != nil {
+		if err = room.checkError(err, playerId); err != nil {
 			return
 		}
-
 		msg := GameMessage{}
 		err = json.Unmarshal(message, &msg)
-		s.checkError(err, playerId)
-
-        s.HandleMessage(playerId, msg)
+		room.checkError(err, playerId)
+        room.HandleMessage(playerId, msg)
 	}
 }
 
-func (s *Server) HandleMessage(playerId string, msg GameMessage) {
+func (r *Room) HandleMessage(playerId string, msg GameMessage) {
     fmt.Printf("got message %v from %v\n", playerId, msg)
     switch msg.Type {
     case "start":
-        s.handleStart()
+        r.handleStart()
     case "join":
-        s.handleJoin(playerId)
+        r.handleJoin(playerId)
     case "playerMove":
-        s.handlePlayerMove(playerId, msg)
+        r.handlePlayerMove(playerId, msg)
     case "readyAck":
-        s.handlePlayerReadyAck(playerId)
+        r.handlePlayerReadyAck(playerId)
     default:
        fmt.Printf("unknown message type: %+v", msg.Type)
     }
 }
 
-func (s *Server) Broadcast(playerViewType string,wsMsgType int, buildPlayerView func(playerId string) json.RawMessage) {
-	s.mu.Lock()
-	for playerId, conn := range s.Connections {
+func (r *Room) Broadcast(playerViewType string,wsMsgType int, buildPlayerView func(playerId string) json.RawMessage) {
+	r.mu.Lock()
+	for playerId, conn := range r.players {
         gameMessage := GameMessage { Type: playerViewType, Data: buildPlayerView(playerId) } 
         response, err := json.Marshal(gameMessage)
         fmt.Printf("message response size in bytes: %v\n\n", len(response))
-        s.checkError(err, playerId)
+        r.checkError(err, playerId)
         err = conn.WriteMessage(wsMsgType, response)
 	}
-	s.mu.Unlock()
+	r.mu.Unlock()
 }
 
-func (s *Server) handleStart() {
-    s.Engine.StartGame()
-    s.Broadcast("state", websocket.TextMessage, s.Engine.GetStateJsonForPlayer)
+func (r *Room) handleStart() {
+    r.Engine.StartGame()
+    r.Broadcast("state", websocket.TextMessage, r.Engine.GetStateJsonForPlayer)
 }
 
-func (s *Server) handleJoin(playerId string) {
-    s.Engine.AddPlayer(playerId)
-    s.Broadcast("join", websocket.TextMessage, s.Engine.GetPlayersJsonForPlayer)
+func (r *Room) handleJoin(playerId string) {
+    r.Engine.AddPlayer(playerId)
+    r.Broadcast("join", websocket.TextMessage, r.Engine.GetPlayersJsonForPlayer)
 }
 
-func (s *Server) handlePlayerMove(playerId string, msg GameMessage) {
+func (r *Room) handlePlayerMove(playerId string, msg GameMessage) {
     playerMove := game.PlayerMove{}
     err := json.Unmarshal(msg.Data, &playerMove)
-    s.checkError(err, playerId)
-    s.Engine.ProcessMove(playerMove)
-    s.Broadcast("state", websocket.TextMessage, s.Engine.GetStateJsonForPlayer)
+    r.checkError(err, playerId)
+    r.Engine.ProcessMove(playerMove)
+    r.Broadcast("state", websocket.TextMessage, r.Engine.GetStateJsonForPlayer)
     /* if state.Phase == RoundOver: client has round over prompt with a ready up button
        server starts a timeout for starting the next round. or sends the function if all players ready beforehand.
     */
-    if s.Engine.State.Phase == game.PhaseRoundOver {
-        s.initAcks()
+    if r.Engine.State.Phase == game.PhaseRoundOver {
+        r.initAcks()
     }
 }
 
-func (s *Server) handlePlayerReadyAck(playerId string) {
-    fmt.Printf("got a ready ack from: %v. during gamephase %v\n", playerId, s.Engine.State.Phase)
-    if s.Engine.State.Phase != game.PhaseRoundOver {
+func (r *Room) handlePlayerReadyAck(playerId string) {
+    fmt.Printf("got a ready ack from: %v. during gamephase %v\n", playerId, r.Engine.State.Phase)
+    if r.Engine.State.Phase != game.PhaseRoundOver {
         return
     }
-    s.acksMu.Lock()
-    s.acks[playerId] = true
-    s.acksMu.Unlock()
-    s.checkAndHandleAcks(false)
+    r.acksMu.Lock()
+    r.acks[playerId] = true
+    r.acksMu.Unlock()
+    r.checkAndHandleAcks(false)
 }
 
-func (s *Server) initAcks() {
-    s.acksMu.Lock()
-    defer s.acksMu.Unlock()
-    s.acks = make(map[string]bool)
-    for playerId := range s.Connections {
-        s.acks[playerId] = false
+func (r *Room) initAcks() {
+    r.acksMu.Lock()
+    defer r.acksMu.Unlock()
+    r.acks = make(map[string]bool)
+    for playerId := range r.players {
+        r.acks[playerId] = false
     }
     go func() {
         time.Sleep(5*time.Second)
-        s.checkAndHandleAcks(true)
+        r.checkAndHandleAcks(true)
     }()
 
 }
 
-func (s *Server) checkAndHandleAcks(force bool) {
-    s.acksMu.Lock()
-    defer s.acksMu.Unlock()
+func (r *Room) checkAndHandleAcks(force bool) {
+    r.acksMu.Lock()
+    defer r.acksMu.Unlock()
     ready := force
     if !ready {
         ready = true 
-        for _, isReady := range s.acks {
+        for _, isReady := range r.acks {
             if !isReady {
                 ready = false
                 break
             }
         }
     }
-
     if ready {
-        s.acks = nil
-        s.Engine.StartNextRound()
-        s.Broadcast("state", websocket.TextMessage, s.Engine.GetStateJsonForPlayer)
+        r.acks = nil
+        r.Engine.StartNextRound()
+        r.Broadcast("state", websocket.TextMessage, r.Engine.GetStateJsonForPlayer)
     }
 }
 
@@ -201,8 +252,8 @@ func checkOrigin(r *http.Request) bool {
 	return origin == "http://192.168.0.120:5173" || origin == "http://localhost:5173" || origin == "localhost"
 }
 
-func (s *Server) checkError(err error, playerId string) error {
-	conn := s.Connections[playerId]
+func (r *Room) checkError(err error, playerId string) error {
+	conn := r.players[playerId]
 	if err == nil {
 		return nil
 	}
@@ -213,11 +264,11 @@ func (s *Server) checkError(err error, playerId string) error {
 	} else if conn == nil {
 		fmt.Printf("----- failed to upgrade websocket with error: %+v\n", err)
 	}
-    s.Engine.RemovePlayer(playerId)
-	delete(s.Connections, playerId)
+    r.Engine.RemovePlayer(playerId)
+	delete(r.players, playerId)
     // this is probably bad design removing the players on an error... what's the better practice for handling side effects when clients close their ws? 
-    if len(s.Connections) == 0 {
-        s.Engine.ResetGame()
+    if len(r.players) == 0 {
+        r.Engine.ResetGame()
     }
 	return err
 }
@@ -226,6 +277,12 @@ func generatePlayerID() string {
 	b := make([]byte, 16)
 	rand.Read(b)
 	return base64.URLEncoding.EncodeToString(b)
+}
+
+func generateRoomID() string {
+    b := make([]byte, 6)
+    rand.Read(b)
+    return base64.URLEncoding.EncodeToString(b)
 }
 
 func (s *Server) printConnections() {
