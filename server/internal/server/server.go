@@ -10,7 +10,6 @@ import (
 	"net/http"
 	"os"
 	"sync"
-    "time"
     "slices"
 )
 
@@ -207,8 +206,13 @@ func (r *Room) handlePlayerReadyAck(playerId string) {
     }
     r.acksMu.Lock()
     r.acks[playerId] = true
+    allReady := r.checkAllReady()
+    if allReady {
+        r.acks = nil
+        r.Engine.StartNextRound()
+        r.Broadcast("state", websocket.TextMessage, r.Engine.GetStateJsonForPlayer)
+    }
     r.acksMu.Unlock()
-    r.checkAndHandleAcks(false)
 }
 
 func (r *Room) initAcks() {
@@ -218,31 +222,17 @@ func (r *Room) initAcks() {
     for playerId := range r.connections {
         r.acks[playerId] = false
     }
-    go func() {
-        time.Sleep(5*time.Second)
-        r.checkAndHandleAcks(true)
-    }()
-
 }
 
-func (r *Room) checkAndHandleAcks(force bool) {
-    r.acksMu.Lock()
-    defer r.acksMu.Unlock()
-    ready := force
-    if !ready {
-        ready = true 
-        for _, isReady := range r.acks {
-            if !isReady {
-                ready = false
-                break
-            }
+func (r *Room) checkAllReady() bool {
+    ready := true 
+    for _, isReady := range r.acks {
+        if !isReady {
+            ready = false
+            break
         }
     }
-    if ready {
-        r.acks = nil
-        r.Engine.StartNextRound()
-        r.Broadcast("state", websocket.TextMessage, r.Engine.GetStateJsonForPlayer)
-    }
+    return ready
 }
 
 func printMessages(messages map[string]json.RawMessage) {

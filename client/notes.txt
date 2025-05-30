@@ -36,19 +36,23 @@ x be able to stack and take with existing stacks on table, right now can only do
 x distinguish from copy stakes and sum stacks
 x multiple copy cards in stack
 
-- multiple stack and takes in one turn ?
-- when picking up multiple stacks on table, should i make it so that we can drag
+x multiple stack and takes in one turn ?
+x when picking up multiple stacks on table, should i make it so that we can drag
   stacks, or make it so that when a player tries to pick one up, it offers them
   to pick all of them up?
-- auto stack
+x make it so you can stack card stacks 
 
+- no text selection on cards
+- dont show move modal when there are no plays to make/when hand card is
+  hovering another hand card
+- Aces count as a "1" when sum stacking
 
 Server: 
 - implement game rooms
 
 GameEngine
- - processes move
- -- sets gameState.Phase = RoundOver... send this back to server ?
+ x processes move
+ x sets gameState.Phase = RoundOver... send this back to server ?
 
 Game Mechanics and Rules (mostly rules, idk what mechanics actually refer to
 tbh):

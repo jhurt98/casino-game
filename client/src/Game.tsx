@@ -1,24 +1,24 @@
 import "./Game.css";
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { useGameState } from "./useGameState.ts";
 import PlayingField from "./PlayingField.tsx";
 import Lobby from "./Lobby.tsx";
 
 function Game() {
     const { gameState } = useGameState();
+    function renderGamePhase() {
+        switch(gameState.phase){
+            case 0: return <Lobby/>;
+            case 1: return <PlayingField/>;
+            case 2: return <NextRoundModal/>;
+            default: return <Lobby/>;
+        }
+    }
     return (
         <div className="game">
             <h1>&#127183;</h1>
             <LeftColumn/>
-            {
-                gameState.phase === 1 ? 
-                    <div className="board">
-                        <NextRoundModal/>
-                        <PlayingField />
-                    </div>
-                :
-                    <Lobby/>
-            }
+            {renderGamePhase()}
             <Buttons/>
         </div>
     );
@@ -79,39 +79,50 @@ function Buttons() {
 
 function NextRoundModal() {
     const { gameState: {phase}, handleReadyAck } = useGameState();
-    const [countDown, setCountDown] = useState<number>(5);
-    const timeOutRef = useRef<number | undefined>(undefined);
+    const [countDown, setCountDown] = useState<number>(10);
+    const timeoutRef = useRef<number | undefined>(undefined);
     const tickRef = useRef<number | undefined>(undefined);
     // make this equal to gamephase.roundOver?
     const show = phase === 2;
     const style = { display: show ? "flex" : "none" };
 
-    function updateTimer() {
-        setCountDown((prev: number) =>  { return --prev} )
-    }
+    const updateTimer = useCallback(()=>{
+        setCountDown((prev: number) =>  { return --prev} );
+    },[]);
 
-    if(show) {
-        if (timeOutRef.current === undefined) {
-            timeOutRef.current = setTimeout(handleReadyUp, 5000);
-        }
-        if (tickRef.current === undefined) {
-            tickRef.current = setInterval(updateTimer, 1000);
-        }
-    }
-
-    function handleReadyUp() {
-        clearTimeout(timeOutRef.current);
+    const handleReadyUp = useCallback(()=>{
+        clearTimeout(timeoutRef.current);
         handleReadyAck();
-    }
+    },[handleReadyAck]);
+
+    useEffect(()=>{
+        if(show) {
+            if (tickRef.current === undefined) {
+                tickRef.current = setInterval(updateTimer, 1000);
+            }
+            if (timeoutRef.current === undefined) {
+                timeoutRef.current = setTimeout(handleReadyUp, 10000);
+            }
+        }
+        return ()=>{ 
+            if (timeoutRef.current !== null) {
+                clearTimeout(timeoutRef.current);
+            }
+            if (tickRef.current !== null) {
+                clearInterval(tickRef.current);
+            }
+        }
+    },[show, updateTimer, handleReadyUp])
 
     return (
         <div style={style} className="nextRoundModal">
             <h3>ROUND OVER!</h3>
             <PointsTable/>
             <p>Ready up for the next round :)</p>
-            <button onClick={handleReadyUp}>
-            Ready {countDown}...
-            </button>
+                { timeoutRef.current !== null ? 
+                    <button onClick={handleReadyUp}>Ready {countDown}...</button>
+                    : <span>Ready! :)</span>
+                }
         </div>
     )
 }

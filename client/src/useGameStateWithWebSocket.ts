@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { GameStateContextType } from "./GameStateContext";
 import { GameState, PlayingCard, CardStack, Player, Turn } from "./types.ts";
 import { determinePossibleMoves } from "./utils/moveDecider.ts";
@@ -154,7 +154,7 @@ function useGameStateWithWebsocket() {
         socketRef.current.send(JSON.stringify(message));
     }
 
-    function handleReadyAck() {
+    const handleReadyAck = useCallback(() => {
         if (socketRef.current === null) {
             return;
         }
@@ -163,7 +163,7 @@ function useGameStateWithWebsocket() {
             data: {},
         };
         socketRef.current.send(JSON.stringify(message));
-    }
+    }, []);
 
     function tossCard(draggedCard: PlayingCard) {
         sendGameMessage(createTossMessage(draggedCard));

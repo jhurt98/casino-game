@@ -20,6 +20,7 @@ function PlayingField() {
     const isPlayersTurn = gameState.turn.currentPlayerId === playerId;
 
     return (
+        <div className="board">
         <DragProvider isPlayersTurn={isPlayersTurn}>
         <Table cardStacks={gameState.table} />
         <MovePromptModal />
@@ -28,6 +29,7 @@ function PlayingField() {
         <Pile pile={playerPile}/>
         </div>
         </DragProvider>
+        </div>
     );
 }
 

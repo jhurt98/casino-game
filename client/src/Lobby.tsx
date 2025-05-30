@@ -8,10 +8,10 @@ function Lobby() {
 
     return (
         <div className="lobby">
-            <h3>Room Testing</h3>
+            <h3>Create or Join an Existing Room</h3>
             <form className="lobbyForm" onSubmit={handleJoinRoom}>
             <input name="playerName" placeholder="Name"/>
-            <input name="roomId" placeholder="Enter Room ID"/>
+            <input name="roomId" placeholder="Room ID"/>
             <button type="button" onClick={createRoom}>Create Room</button>
             <button type="submit">Join Room</button>
             <button type="button" onClick={handleStart}>Start Game</button>

@@ -142,6 +142,9 @@
 .nextRoundModal > * {
     margin-bottom: 8px;
 }
+.nextRoundModal span {
+    color: green;
+}
 
 table {
     align-self: center;
