@@ -1,22 +1,26 @@
 import "./Game.css";
 import { useState, useRef } from "react";
 import { useGameState } from "./useGameState.ts";
-import { GameStateContextProvider } from "./GameStateContext.tsx";
 import PlayingField from "./PlayingField.tsx";
+import Lobby from "./Lobby.tsx";
 
 function Game() {
+    const { gameState } = useGameState();
     return (
-        <GameStateContextProvider>
         <div className="game">
             <h1>&#127183;</h1>
             <LeftColumn/>
-            <div className="board">
-                <NextRoundModal/>
-                <PlayingField />
-            </div>
+            {
+                gameState.phase === 1 ? 
+                    <div className="board">
+                        <NextRoundModal/>
+                        <PlayingField />
+                    </div>
+                :
+                    <Lobby/>
+            }
             <Buttons/>
         </div>
-        </GameStateContextProvider>
     );
 }
 
@@ -65,12 +69,9 @@ function LeftColumn() {
 }
 
 function Buttons() {
-    const { connectToLobby, handleJoinGame,handleStart,skipTurn } = useGameState();
+    const { skipTurn } = useGameState();
     return (
             <div className="column">
-                <button onClick={connectToLobby}>Connect to Lobby</button>
-                <button onClick={handleJoinGame}>Join Game</button>
-                <button onClick={handleStart}>Start Game</button>
                 <button onClick={skipTurn}>Skip Turn</button>
             </div>
     );

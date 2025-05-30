@@ -1,11 +1,12 @@
 import "./App.css";
 import Game from "./Game.tsx";
+import { GameStateContextProvider } from "./GameStateContext.tsx";
 
 function App() {
     return (
-        <>
-        <Game/>
-        </>
+        <GameStateContextProvider>
+            <Game/>
+        </GameStateContextProvider>
     );
 }
 

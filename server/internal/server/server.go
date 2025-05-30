@@ -11,6 +11,7 @@ import (
 	"os"
 	"sync"
     "time"
+    "slices"
 )
 
 type GameMessage struct {
@@ -28,8 +29,9 @@ type Server struct {
 type Room struct {
     ID     string
     Engine *game.Engine
+    Players []string
     mu     sync.Mutex
-    players map[string]*websocket.Conn
+    connections map[string]*websocket.Conn
     acks map[string]bool
     acksMu sync.Mutex
 }
@@ -43,7 +45,7 @@ func NewServer() *Server {
 }
 
 func (s *Server) SetupRoutes() {
-	s.router.HandleFunc("/game/{roomId}/{playerId}", s.GameHandler)
+	s.router.HandleFunc("/gameconnect/{roomId}/{playerId}", s.GameConnect)
 	s.router.HandleFunc("/test", s.testHandler)
     s.router.HandleFunc("/createRoom", s.CreateRoom)
     s.router.HandleFunc("POST /join/{roomId}", s.JoinRoom)
@@ -64,40 +66,44 @@ func (s *Server) Start() {
 }
 
 func (s *Server) CreateRoom(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Access-Control-Allow-Origin", "http://localhost:5173")
+	w.Header().Set("Access-Control-Allow-Origin", "*")
     newRoomID := generateRoomID()
     s.mu.Lock()
     if _, in := s.rooms[newRoomID]; in {
         fmt.Fprintf(w, "room already exists")
         return
     }
-    s.rooms[newRoomID] = &Room{ID: newRoomID, players: make(map[string]*websocket.Conn), Engine: game.NewEngine()} 
+    s.rooms[newRoomID] = &Room{ID: newRoomID, Players: []string{}, connections: make(map[string]*websocket.Conn), Engine: game.NewEngine()} 
     s.mu.Unlock()
-    fmt.Fprintf(w, "generated id: %v\n", s.rooms[newRoomID])
+    fmt.Fprint(w, newRoomID)
 }
 
 // POST /join/{roomId}
 func (s *Server) JoinRoom(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Access-Control-Allow-Origin", "*")
     roomId := r.PathValue("roomId")
     fmt.Printf("roomId: %v\n", roomId)
     if roomId == "" {
+        fmt.Println("empty room id string")
         http.Error(w, "Room ID required.", http.StatusBadRequest)
         return
     }
     room, in := s.rooms[roomId]
     if !in {
+        fmt.Println("room does not exist")
         http.Error(w, "room does not exist", http.StatusNotFound)
         return
     }
     room.mu.Lock()
     playerId := generatePlayerID()
-    room.players[playerId] = nil
+    room.Players = append(room.Players, playerId)
     room.mu.Unlock()
     fmt.Fprint(w, playerId)
 }
 
 // ws /gameconnect/{roomId}/{playerId} 
-func (s *Server) GameHandler(w http.ResponseWriter, r *http.Request) {
+func (s *Server) GameConnect(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Access-Control-Allow-Origin", "*")
     roomId := r.PathValue("roomId")
     playerId := r.PathValue("playerId")
     room, in := s.rooms[roomId]
@@ -105,9 +111,8 @@ func (s *Server) GameHandler(w http.ResponseWriter, r *http.Request) {
         http.Error(w, "room does not exist", http.StatusNotFound)
         return
     }
-    _,in = room.players[playerId]
-    if !in {
-        http.Error(w, "player does not exist", http.StatusNotFound)
+    if !slices.Contains(room.Players, playerId) {
+        http.Error(w, "player is not connected", http.StatusNotFound)
         return
     }
 
@@ -125,12 +130,12 @@ func (s *Server) GameHandler(w http.ResponseWriter, r *http.Request) {
 
 	defer conn.Close()
     room.mu.Lock()
-    room.players[playerId] = conn
-    room.handleJoin(playerId)
+    room.connections[playerId] = conn
     room.mu.Unlock()
 
 	fmt.Println("opened ws with", r.Header.Get("Origin"))
     
+    room.handleJoin(playerId)
 	// is this infinite loop good? is the err case sufficient to make sure it closes properly???
 	for {
 		_, message, err := conn.ReadMessage()
@@ -145,7 +150,6 @@ func (s *Server) GameHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func (r *Room) HandleMessage(playerId string, msg GameMessage) {
-    fmt.Printf("got message %v from %v\n", playerId, msg)
     switch msg.Type {
     case "start":
         r.handleStart()
@@ -162,7 +166,7 @@ func (r *Room) HandleMessage(playerId string, msg GameMessage) {
 
 func (r *Room) Broadcast(playerViewType string,wsMsgType int, buildPlayerView func(playerId string) json.RawMessage) {
 	r.mu.Lock()
-	for playerId, conn := range r.players {
+	for playerId, conn := range r.connections {
         gameMessage := GameMessage { Type: playerViewType, Data: buildPlayerView(playerId) } 
         response, err := json.Marshal(gameMessage)
         fmt.Printf("message response size in bytes: %v\n\n", len(response))
@@ -211,7 +215,7 @@ func (r *Room) initAcks() {
     r.acksMu.Lock()
     defer r.acksMu.Unlock()
     r.acks = make(map[string]bool)
-    for playerId := range r.players {
+    for playerId := range r.connections {
         r.acks[playerId] = false
     }
     go func() {
@@ -249,11 +253,12 @@ func printMessages(messages map[string]json.RawMessage) {
 
 func checkOrigin(r *http.Request) bool {
 	origin := r.Header.Get("Origin")
-	return origin == "http://192.168.0.120:5173" || origin == "http://localhost:5173" || origin == "localhost"
+    fmt.Printf("origin: %v\n", origin)
+	return origin == "http://192.168.0.120:5173" || origin == "http://localhost:5173" || origin == "localhost" || origin == "null"
 }
 
 func (r *Room) checkError(err error, playerId string) error {
-	conn := r.players[playerId]
+	conn := r.connections[playerId]
 	if err == nil {
 		return nil
 	}
@@ -265,9 +270,9 @@ func (r *Room) checkError(err error, playerId string) error {
 		fmt.Printf("----- failed to upgrade websocket with error: %+v\n", err)
 	}
     r.Engine.RemovePlayer(playerId)
-	delete(r.players, playerId)
+	delete(r.connections, playerId)
     // this is probably bad design removing the players on an error... what's the better practice for handling side effects when clients close their ws? 
-    if len(r.players) == 0 {
+    if len(r.connections) == 0 {
         r.Engine.ResetGame()
     }
 	return err

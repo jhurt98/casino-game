@@ -48,8 +48,9 @@ function normalizeCards(data: Array<PlayingCard>, location: string): void {
 
 function useGameStateWithWebsocket() {
     const [gameState, setGameState] = useState<GameState>(defaultGameState);
-    const [playerId, setPlayerId] = useState<string>();
+    const [playerId, setPlayerId] = useState<string>("");
     const [tableHistory, setTableHistory] = useState<Array<Array<CardStack>>>([]);
+    const [roomId, setRoomId] = useState<string>("");
     const socketRef = useRef<WebSocket | null>(null);
     const currentPlayer = gameState.players.find((player) => player.id === playerId) || {
         hand: [],
@@ -69,39 +70,31 @@ function useGameStateWithWebsocket() {
         };
     }, []);
 
-    // just for readability sake i could decompose the message handlers into something else and make this function shorter, while still communicating its purpose...
-    function connectToLobby() {
-        const socket = new WebSocket("ws://localhost:8080/game");
-        socket.onmessage = (event) => {
-            const message = JSON.parse(event.data);
-            if (message.type === "join") {
-                const players: Array<Player> = message.data.allPlayers.map((player: Player) =>
-                    normalizePlayer(player),
-                ) as Array<Player>;
-                const myPlayerId: string = message.data.myPlayerId;
-                const newGameState: GameState = { ...gameState, players: players, } as GameState;
+    function wsOnMessage(event) {
+        const message = JSON.parse(event.data);
+        if (message.type === "join") {
+            const players: Array<Player> = message.data.allPlayers.map((player: Player) =>
+                normalizePlayer(player),
+            ) as Array<Player>;
+            const myPlayerId: string = message.data.myPlayerId;
+            const newGameState: GameState = { ...gameState, players: players, } as GameState;
                 setGameState(newGameState);
                 setPlayerId(myPlayerId);
-            } else if (message.type === "state") {
-                const players: Array<Player> = message.data.players.map((player: Player) =>
-                    normalizePlayer(player),
-                ) as Array<Player>;
-                const table: Array<CardStack> = message.data.table as Array<CardStack>;
-                const turn: Turn = message.data.turn as Turn;
-                const deckLen: number = message.data.deckLen;
-                const phase: number = message.data.phase;
-                //console.log(message.data);
-                players.forEach((player) => { normalizeCards(player.hand, "hand"); normalizeCards(player.pile, "pile");});
-                table.forEach((cardStack) => {normalizeCards(cardStack.cards, "table");});
-                setTableHistory([table]);
-                const newGameState: GameState = { deckLen: deckLen, table: table, turn: turn, players: players, phase: phase, } as GameState;
-                setGameState(newGameState);
-            }
-        };
-        socket.addEventListener("error", (event) => {
-            console.log(event);
-        });
-        socketRef.current = socket;
+        } else if (message.type === "state") {
+            const players: Array<Player> = message.data.players.map((player: Player) =>
+                normalizePlayer(player),
+            ) as Array<Player>;
+            const table: Array<CardStack> = message.data.table as Array<CardStack>;
+            const turn: Turn = message.data.turn as Turn;
+            const deckLen: number = message.data.deckLen;
+            const phase: number = message.data.phase;
+            //console.log(message.data);
+            players.forEach((player) => { normalizeCards(player.hand, "hand"); normalizeCards(player.pile, "pile");});
+            table.forEach((cardStack) => {normalizeCards(cardStack.cards, "table");});
+            setTableHistory([table]);
+            const newGameState: GameState = { deckLen: deckLen, table: table, turn: turn, players: players, phase: phase, } as GameState;
+            setGameState(newGameState);
+        }
     }
 
     function sendGameMessage(message: Message): void {
@@ -111,13 +104,44 @@ function useGameStateWithWebsocket() {
         socketRef.current.send(JSON.stringify(message));
     }
 
-    function handleJoinGame() {
-        if (socketRef.current === null) {
-            return;
+    async function handleJoinRoom(e: React.FormEvent) {
+        e.preventDefault();
+        try {
+            const form = e.target as HTMLFormElement;
+            const formData = new FormData(form);
+            const roomId = formData.get("roomId");
+            const response = await fetch(`http://localhost:8080/join/${roomId}`, {method: 'POST'});
+            const playerID = await response.text();
+            const socket = new WebSocket(`ws://localhost:8080/gameconnect/${roomId}/${playerID}`);
+            setPlayerId(playerID);
+            socket.onmessage = wsOnMessage; 
+            socket.addEventListener("error", (event) => {
+                console.log(event);
+            });
+            socketRef.current = socket;
+        } catch (e) {
+            console.log('❌ Join room failed: ' + e.message);
         }
-        const data = { type: "join", data: {} };
-        socketRef.current.send(JSON.stringify(data));
     }
+
+    async function createRoom() {
+        try {
+            const response = await fetch('http://localhost:8080/createRoom');
+            const roomId = await response.text();
+            const joinResponse = await fetch(`http://localhost:8080/join/${roomId}`, {method: 'POST'});
+            const playerId = await joinResponse.text();
+            const socket = new WebSocket(`ws://localhost:8080/gameconnect/${roomId}/${playerId}`);
+            socket.onmessage = wsOnMessage; 
+            socket.addEventListener("error", (event) => {
+                console.log(event);
+            });
+            socketRef.current = socket;
+            setRoomId(roomId);
+            setPlayerId(playerId);
+        } catch (e) {
+            console.log('❌ Create room failed: ' + e.message);
+        }
+     }
 
     function handleStart() {
         if (socketRef.current === null) {
@@ -337,11 +361,10 @@ function useGameStateWithWebsocket() {
         return moves;
     }
 
-    const data: GameStateContextType = {
+    const value: GameStateContextType = {
         gameState: gameState,
         playerId: playerId,
-        connectToLobby: connectToLobby,
-        handleJoinGame: handleJoinGame,
+        handleJoinRoom: handleJoinRoom,
         handleStart: handleStart,
         handleReadyAck: handleReadyAck,
         getPossibleMoves: getPossibleMoves,
@@ -349,9 +372,11 @@ function useGameStateWithWebsocket() {
         tableHistory: tableHistory,
         undoTableHistory: undoTableHistory,
         resetTableHistory: resetTableHistory,
+        createRoom: createRoom,
+        roomId: roomId,
     };
 
-    return data;
+    return value;
 }
 
 // this might not be good because now the move handlers receive copies of PlayingCard and CardStack... can no longer make equality checks

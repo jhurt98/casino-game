@@ -5,8 +5,7 @@ import useGameStateWithWebsocket, { Move } from "./useGameStateWithWebSocket.ts"
 export interface GameStateContextType {
     gameState: GameState;
     playerId: string | undefined;
-    connectToLobby: ()=>void;
-    handleJoinGame: ()=>void;
+    handleJoinRoom: (e: React.FormEvent)=>void;
     handleStart: ()=>void;
     handleReadyAck: ()=>void;
     getPossibleMoves: (draggedCardStack: CardStack | null, overlappedCardStack: CardStack | null, isTableOverlapped: boolean)=>Array<Move>;
@@ -14,6 +13,8 @@ export interface GameStateContextType {
     tableHistory: Array<Array<CardStack>>;
     undoTableHistory: ()=>void;
     resetTableHistory: ()=>void;
+    createRoom: ()=>void;
+    roomId: string;
 }
 
 export const GameStateContext = createContext<GameStateContextType | undefined>(undefined);

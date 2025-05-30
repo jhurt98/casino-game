@@ -247,6 +247,36 @@ h1 {
     padding: 0;
 }
 
+.lobby {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.lobbyForm {
+    display: flex;
+    flex-direction: column;
+}
+
+.lobbyForm input:first-child {
+    margin-bottom: 8px;
+    max-width: 200px;
+}
+
+.lobbyForm input {
+    margin-bottom: 8px;
+    max-width: 200px;
+}
+
+.lobbyForm button {
+    margin-top: 18px;
+    width: 160px;
+    align-self: center;
+    font-size: 18px;
+    cursor: pointer;
+    height: 32px;
+}
+
 p {
     margin: 0px;
     font-size: 18px;

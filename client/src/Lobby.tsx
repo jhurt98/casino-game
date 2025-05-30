@@ -1,78 +1,27 @@
-import { useRef, useEffect, useState } from "react";
+import { useRef } from "react";
+import { useGameState } from "./useGameState.ts";
 import "./Lobby.css";
-
-interface Message {
-    type: string;
-    data: string;
-}
-
 function Lobby() {
-    const [players, setPlayers] = useState<Array<string>>([]);
-    const socketRef = useRef<WebSocket | null>(null);
+    const ws = useRef<WebSocket | null>(null);
 
-    function testWS() {
-        const socket = new WebSocket("ws://localhost:8080/game");
-
-        socket.onmessage = (event) => {
-            console.log("event data", event.data);
-            const message = JSON.parse(event.data);
-            if (message.type === "join") {
-                const newPlayer = message.data[message.data.length - 1];
-                const playerName = "Player " + newPlayer.Id;
-                setPlayers((players) => [...players, playerName]);
-            }
-        };
-
-        socket.addEventListener("error", (event) => {
-            console.log(event);
-        });
-
-        socketRef.current = socket;
-    }
-
-    useEffect(() => {
-        if (socketRef.current === null) {
-            return;
-        }
-
-        return () => {
-            if (socketRef.current !== null) {
-                socketRef.current.close(1000);
-            }
-        };
-    }, []);
-
-    function handleStart() {
-        if (socketRef.current === null) {
-            return;
-        }
-        const message: Message = {
-            type: "start",
-            data: "",
-        };
-        socketRef.current.send(JSON.stringify(message));
-    }
-
-    function handleJoinGame() {
-        if (socketRef.current === null) {
-            return;
-        }
-        const data = { type: "join", data: {} };
-        socketRef.current.send(JSON.stringify(data));
-    }
+    const { createRoom, handleJoinRoom, playerId, roomId, handleStart } = useGameState();
 
     return (
-        <>
-            <button onClick={testWS}>open ws</button>
-            <button onClick={handleStart}>testStart</button>
-            <button onClick={handleJoinGame}>join game</button>
+        <div className="lobby">
+            <h3>Room Testing</h3>
+            <form className="lobbyForm" onSubmit={handleJoinRoom}>
+            <input name="playerName" placeholder="Name"/>
+            <input name="roomId" placeholder="Enter Room ID"/>
+            <button type="button" onClick={createRoom}>Create Room</button>
+            <button type="submit">Join Room</button>
+            <button type="button" onClick={handleStart}>Start Game</button>
+            </form>
             <div>
-                Players
-                {players.map((player, i) => (
-                    <li key={i}>{player}</li>
-                ))}
+                <strong>Player ID:</strong> <span id="playerIdDisplay">{playerId === "" ? "No Player": playerId}</span><br/>
+                <strong>WebSocket:</strong> <span id="wsStatus">{ws? "Disconnected" : "Connected"}</span><br/>
+                <strong>GameRoom</strong> <span id="grStatus">{roomId === "" ? "No Game Room" : roomId }</span>
             </div>
-        </>
+        </div>
     );
 }
 
