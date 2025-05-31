@@ -102,6 +102,7 @@ export function DragProvider({children, isPlayersTurn, hand}: {children: ReactNo
             return;
         }
         dragEnabled.current = false;
+        // should i use the refs or the state? ima use refs... 
         const possibleMoves = determinePossibleMoves(hand, draggedCardStackObj.current, overlappedCardStackRef.current, isTableOverlappedRef.current);
         if (possibleMoves.length > 0) {
             setShowModalPrompt(possibleMoves.length > 0);
@@ -159,6 +160,7 @@ export function DragProvider({children, isPlayersTurn, hand}: {children: ReactNo
     function closeModal() {
         dragEnabled.current = true;
         overlappedCardStackRef.current = null;
+        isTableOverlappedRef.current = false;
         resetDraggedCard();
         setOverlappedCardStack(null);
         setIsTableOverlapped(false);

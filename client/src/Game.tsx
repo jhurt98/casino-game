@@ -116,6 +116,7 @@ function NextRoundModal() {
         return ()=>{ 
             if (timeoutRef.current !== null) {
                 clearTimeout(timeoutRef.current);
+                timeoutRef.current = undefined;
             }
             if (tickRef.current !== null) {
                 clearInterval(tickRef.current);
@@ -128,7 +129,7 @@ function NextRoundModal() {
             <h3>ROUND OVER!</h3>
             <PointsTable/>
             <p>Ready up for the next round :)</p>
-                { timeoutRef.current !== null ? 
+                { timeoutRef.current !== undefined ? 
                     <button onClick={handleReadyUp}>Ready {countDown}...</button>
                     : <span>Ready! :)</span>
                 }

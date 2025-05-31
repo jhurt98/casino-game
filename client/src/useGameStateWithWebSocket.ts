@@ -399,7 +399,6 @@ function functionWithNonNullArguments(f: (...args: any[]) => void,
 function deriveNewCardRank(source: CardStack, target: CardStack, stackType: string) {
     if (stackType === "sum") {
         const sum = getRankValue(source.rank) + getRankValue(target.rank);
-        console.log(getRankValue(source.rank), getRankValue(target.rank),sum);
         if (Number.isNaN(sum)) { 
             console.error("ermmmm this shouldn't even happen");
             return "";

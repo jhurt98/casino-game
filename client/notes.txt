@@ -12,7 +12,7 @@ TODO:
 x no text selection on cards
 x dont show move modal when there are no plays to make/when hand card is
   hovering another hand card
-- Aces count as a "1" when sum stacking
+x Aces count as a "1" when sum stacking
 
 first to 25 pts
 play rounds

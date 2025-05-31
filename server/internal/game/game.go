@@ -54,6 +54,7 @@ type PlayerMove struct {
 type Turn struct {
 	TurnCount       int    `json:"turnCount"`
 	CurrentPlayerId string `json:"currentPlayerId"`
+    turn            int
 }
 
 type GameState struct {
@@ -128,18 +129,24 @@ func (e *Engine) ProcessMove(move PlayerMove) {
 	} else if move.MoveType == "stackForLater" {
 		e.stackForLater(move.PlayerId, move.Cards, move.CardStack)
 	}
-	e.State.Turn.TurnCount++
-	e.State.Turn.CurrentPlayerId = e.State.Players[(e.State.Turn.TurnCount-1)%len(e.State.Players)].Id
 	if e.isRoundOver() {
 		e.State.Phase = PhaseRoundOver
 		e.calculatePlayerPoints()
 		if e.hasWinner() {
 			e.State.Phase = PhaseGameOver
 		}
+        e.State.Turn.turn = 0
 	} else if e.allPlayersHandsEmpty() {
+        e.State.Turn.turn++
 		e.dealCards()
-	}
-
+	} else {
+        e.State.Turn.turn++
+        for len(e.State.Players[e.State.Turn.turn%len(e.State.Players)].Hand) == 0 {
+            e.State.Turn.turn++
+        }
+        e.State.Turn.CurrentPlayerId = e.State.Players[(e.State.Turn.turn)%len(e.State.Players)].Id
+    }
+    e.State.Turn.TurnCount++
 	e.State.mu.Unlock()
 }
 
