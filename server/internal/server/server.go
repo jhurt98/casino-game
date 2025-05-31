@@ -10,7 +10,6 @@ import (
 	"net/http"
 	"os"
 	"sync"
-    "slices"
 )
 
 type GameMessage struct {
@@ -28,7 +27,7 @@ type Server struct {
 type Room struct {
     ID     string
     Engine *game.Engine
-    Players []string
+    Players map[string]string
     mu     sync.Mutex
     connections map[string]*websocket.Conn
     acks map[string]bool
@@ -46,7 +45,7 @@ func NewServer() *Server {
 func (s *Server) SetupRoutes() {
 	s.router.HandleFunc("/gameconnect/{roomId}/{playerId}", s.GameConnect)
 	s.router.HandleFunc("/test", s.testHandler)
-    s.router.HandleFunc("/createRoom", s.CreateRoom)
+    s.router.HandleFunc("POST /createRoom", s.CreateRoom)
     s.router.HandleFunc("POST /join/{roomId}", s.JoinRoom)
 }
 
@@ -72,16 +71,18 @@ func (s *Server) CreateRoom(w http.ResponseWriter, r *http.Request) {
         fmt.Fprintf(w, "room already exists")
         return
     }
-    s.rooms[newRoomID] = &Room{ID: newRoomID, Players: []string{}, connections: make(map[string]*websocket.Conn), Engine: game.NewEngine()} 
+    s.rooms[newRoomID] = &Room{ID: newRoomID, Players: make(map[string]string), connections: make(map[string]*websocket.Conn), Engine: game.NewEngine()} 
     s.mu.Unlock()
     fmt.Fprint(w, newRoomID)
 }
 
-// POST /join/{roomId}
+// does having the name as an argument even make sense?
+// POST /join/{roomId}/{playerName}
 func (s *Server) JoinRoom(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Access-Control-Allow-Origin", "*")
     roomId := r.PathValue("roomId")
-    fmt.Printf("roomId: %v\n", roomId)
+    playerName := r.URL.Query().Get("playerName")
+    fmt.Printf("roomId: %v, playerName: %v\n", roomId,playerName)
     if roomId == "" {
         fmt.Println("empty room id string")
         http.Error(w, "Room ID required.", http.StatusBadRequest)
@@ -95,7 +96,10 @@ func (s *Server) JoinRoom(w http.ResponseWriter, r *http.Request) {
     }
     room.mu.Lock()
     playerId := generatePlayerID()
-    room.Players = append(room.Players, playerId)
+    if playerName == "" {
+        playerName = fmt.Sprintf("Player %v", len(room.Players)+1)
+    }
+    room.Players[playerId] = playerName
     room.mu.Unlock()
     fmt.Fprint(w, playerId)
 }
@@ -110,11 +114,13 @@ func (s *Server) GameConnect(w http.ResponseWriter, r *http.Request) {
         http.Error(w, "room does not exist", http.StatusNotFound)
         return
     }
-    if !slices.Contains(room.Players, playerId) {
+    playerName, playerJoined := room.Players[playerId]
+    if  !playerJoined {
         http.Error(w, "player is not connected", http.StatusNotFound)
         return
     }
 
+    fmt.Printf("connecting %v\n", playerName)
 	var upgrader = websocket.Upgrader{
 		ReadBufferSize:  1024,
 		WriteBufferSize: 1024,
@@ -134,7 +140,7 @@ func (s *Server) GameConnect(w http.ResponseWriter, r *http.Request) {
 
 	fmt.Println("opened ws with", r.Header.Get("Origin"))
     
-    room.handleJoin(playerId)
+    room.handleJoinGame(playerId, playerName)
 	// is this infinite loop good? is the err case sufficient to make sure it closes properly???
 	for {
 		_, message, err := conn.ReadMessage()
@@ -153,7 +159,7 @@ func (r *Room) HandleMessage(playerId string, msg GameMessage) {
     case "start":
         r.handleStart()
     case "join":
-        r.handleJoin(playerId)
+        r.handleJoinGame(playerId, r.Players[playerId])
     case "playerMove":
         r.handlePlayerMove(playerId, msg)
     case "readyAck":
@@ -180,8 +186,8 @@ func (r *Room) handleStart() {
     r.Broadcast("state", websocket.TextMessage, r.Engine.GetStateJsonForPlayer)
 }
 
-func (r *Room) handleJoin(playerId string) {
-    r.Engine.AddPlayer(playerId)
+func (r *Room) handleJoinGame(playerId, playerName string) {
+    r.Engine.AddPlayer(playerId, playerName)
     r.Broadcast("join", websocket.TextMessage, r.Engine.GetPlayersJsonForPlayer)
 }
 

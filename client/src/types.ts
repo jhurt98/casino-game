@@ -29,4 +29,5 @@ export interface Player {
     hand: Array<PlayingCard>;
     pile: Array<PlayingCard>;
     points: number;
+    name: string;
 }

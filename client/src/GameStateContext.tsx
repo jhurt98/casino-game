@@ -5,15 +5,15 @@ import useGameStateWithWebsocket, { Move } from "./useGameStateWithWebSocket.ts"
 export interface GameStateContextType {
     gameState: GameState;
     playerId: string | undefined;
-    handleJoinRoom: (e: React.FormEvent)=>void;
-    handleStart: ()=>void;
+    joinRoom: (roomID: string, playerName: string)=>void;
+    startGame: ()=>void;
     handleReadyAck: ()=>void;
     getPossibleMoves: (draggedCardStack: CardStack | null, overlappedCardStack: CardStack | null, isTableOverlapped: boolean)=>Array<Move>;
     skipTurn: ()=>void;
     tableHistory: Array<Array<CardStack>>;
     undoTableHistory: ()=>void;
     resetTableHistory: ()=>void;
-    createRoom: ()=>void;
+    createRoom: (playerName:string)=>void;
     roomId: string;
 }
 

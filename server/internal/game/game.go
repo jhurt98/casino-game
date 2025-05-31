@@ -42,6 +42,7 @@ type Player struct {
 	Points int    `json:"points"`
 	Hand   []Card `json:"hand"`
 	Pile   []Card `json:"pile"`
+    Name   string `json:"name"`
 }
 
 type PlayerMove struct {
@@ -106,9 +107,9 @@ func (e *Engine) StartNextRound() {
 	e.State.Phase = PhasePlaying
 }
 
-func (e *Engine) AddPlayer(playerId string) {
+func (e *Engine) AddPlayer(playerId string, name string) {
 	e.State.mu.Lock()
-	e.State.Players = append(e.State.Players, &Player{Points: 0, Id: playerId, Hand: []Card{}, Pile: []Card{}})
+    e.State.Players = append(e.State.Players, &Player{Points: 0, Id: playerId, Hand: []Card{}, Pile: []Card{}, Name: name})
 	e.State.mu.Unlock()
 }
 
@@ -161,6 +162,7 @@ func (e *Engine) GetStateJsonForPlayer(playerId string) json.RawMessage {
 		Hand     []Card `json:"hand,omitempty"`
 		Pile     []Card `json:"pile"`
 		HandSize int    `json:"handSize"`
+        Name     string `json:"name"`
 	}
 
 	type GameStateView struct {
@@ -184,6 +186,7 @@ func (e *Engine) GetStateJsonForPlayer(playerId string) json.RawMessage {
 			Points:   p.Points,
 			Pile:     p.Pile,
 			HandSize: len(p.Hand),
+            Name:     p.Name,
 		}
 
 		// Only include hand for the current player
@@ -211,6 +214,7 @@ func (e *Engine) GetPlayersJsonForPlayer(playerId string) json.RawMessage {
 		Hand     []Card `json:"hand,omitempty"`
 		Pile     []Card `json:"pile"`
 		HandSize int    `json:"handSize"`
+        Name     string `json:"name"`
 	}
 
 	type View struct {
@@ -225,6 +229,7 @@ func (e *Engine) GetPlayersJsonForPlayer(playerId string) json.RawMessage {
 			Points:   p.Points,
 			Pile:     p.Pile,
 			HandSize: len(p.Hand),
+            Name:     p.Name,
 		}
 
 		// Only include hand for the current player

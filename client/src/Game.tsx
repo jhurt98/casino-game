@@ -44,9 +44,9 @@ function PointsTable() {
                 </tr>
             </thead>
             <tbody>
-                {players.map((player, i) => (
+                {players.map((player) => (
                     <tr key={player.id}>
-                        <th scope="row">{`Player ${i + 1}`}</th>
+                        <th scope="row">{player.name}</th>
                         { phase > 0 && <td>{player.points}</td>}
                     </tr>
                 ))}

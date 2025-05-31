@@ -37,6 +37,7 @@ function normalizePlayer(data: Player): Player {
         hand: data.hand ?? [],
         pile: data.pile ?? [],
         points: data.points ?? 0,
+        name: data.name ?? "Player",
     };
 }
 
@@ -77,6 +78,7 @@ function useGameStateWithWebsocket() {
                 normalizePlayer(player),
             ) as Array<Player>;
             const myPlayerId: string = message.data.myPlayerId;
+            console.log("players", players);
             const newGameState: GameState = { ...gameState, players: players, } as GameState;
                 setGameState(newGameState);
                 setPlayerId(myPlayerId);
@@ -104,15 +106,12 @@ function useGameStateWithWebsocket() {
         socketRef.current.send(JSON.stringify(message));
     }
 
-    async function handleJoinRoom(e: React.FormEvent) {
-        e.preventDefault();
+    async function joinRoom(roomID: string, playerName: string) {
+        console.log("playername:", playerName);
         try {
-            const form = e.target as HTMLFormElement;
-            const formData = new FormData(form);
-            const roomId = formData.get("roomId");
-            const response = await fetch(`http://localhost:8080/join/${roomId}`, {method: 'POST'});
+            const response = await fetch(`http://localhost:8080/join/${roomID}?playerName=${playerName}`, {method: "POST"});
             const playerID = await response.text();
-            const socket = new WebSocket(`ws://localhost:8080/gameconnect/${roomId}/${playerID}`);
+            const socket = new WebSocket(`ws://localhost:8080/gameconnect/${roomID}/${playerID}`);
             setPlayerId(playerID);
             socket.onmessage = wsOnMessage; 
             socket.addEventListener("error", (event) => {
@@ -124,11 +123,12 @@ function useGameStateWithWebsocket() {
         }
     }
 
-    async function createRoom() {
+    // this is kinda awkward no? 
+    async function createRoom(playerName: string) {
         try {
-            const response = await fetch('http://localhost:8080/createRoom');
+            const response = await fetch('http://localhost:8080/createRoom', {method: "POST"});
             const roomId = await response.text();
-            const joinResponse = await fetch(`http://localhost:8080/join/${roomId}`, {method: 'POST'});
+            const joinResponse = await fetch(`http://localhost:8080/join/${roomId}?playerName=${playerName}`, {method: "POST"});
             const playerId = await joinResponse.text();
             const socket = new WebSocket(`ws://localhost:8080/gameconnect/${roomId}/${playerId}`);
             socket.onmessage = wsOnMessage; 
@@ -143,7 +143,7 @@ function useGameStateWithWebsocket() {
         }
      }
 
-    function handleStart() {
+    function startGame() {
         if (socketRef.current === null) {
             return;
         }
@@ -364,8 +364,8 @@ function useGameStateWithWebsocket() {
     const value: GameStateContextType = {
         gameState: gameState,
         playerId: playerId,
-        handleJoinRoom: handleJoinRoom,
-        handleStart: handleStart,
+        joinRoom: joinRoom,
+        startGame: startGame,
         handleReadyAck: handleReadyAck,
         getPossibleMoves: getPossibleMoves,
         skipTurn: skipTurn,
