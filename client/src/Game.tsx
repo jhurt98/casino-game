@@ -3,13 +3,22 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import { useGameState } from "./useGameState.ts";
 import PlayingField from "./PlayingField.tsx";
 import Lobby from "./Lobby.tsx";
+import { DragProvider } from "./DragContext.tsx";
 
 function Game() {
-    const { gameState } = useGameState();
+    const { gameState, playerId } = useGameState();
+    const isPlayersTurn = gameState.turn.currentPlayerId === playerId;
+    const currentPlayer = gameState.players.find((player) => player.id === playerId) || {
+        hand: [],
+        pile: [],
+        points: 0,
+        id: "undefined",
+    };
+
     function renderGamePhase() {
         switch(gameState.phase){
             case 0: return <Lobby/>;
-            case 1: return <PlayingField/>;
+            case 1: return <DragProvider isPlayersTurn={isPlayersTurn} hand={currentPlayer.hand}><PlayingField/></DragProvider>;
             case 2: return <NextRoundModal/>;
             default: return <Lobby/>;
         }

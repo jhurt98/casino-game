@@ -1,13 +1,14 @@
 import React, { useState, useEffect, useRef, useCallback, createContext, ReactNode } from "react";
-import type { CardStack } from "./types.ts";
+import type { CardStack, PlayingCard } from "./types.ts";
 import { detectOverlappedCardStack, detectTable } from "./utils/collisionUtils.ts";
+import { determinePossibleMoves } from "./utils/moveDecider.ts";
 
 export interface DragContextType {
     dragEnabled: boolean;
     draggedCardStack: CardStack | null;
     overlappedCardStack: CardStack | null;
     isTableOverlapped: boolean;
-    showMovePrompt: boolean;
+    showModalPrompt: boolean;
 
     handleMouseDown: (e: React.MouseEvent<HTMLDivElement>,cardRef: HTMLDivElement | null,card: CardStack) =>  void;
     registerCardStackRef: (card: CardStack, element: HTMLDivElement | null) => void;
@@ -18,7 +19,7 @@ export interface DragContextType {
 export const DragContext = createContext<DragContextType | undefined>(undefined);
 
 
-export function DragProvider({children, isPlayersTurn }: {children: ReactNode, isPlayersTurn: boolean}) {
+export function DragProvider({children, isPlayersTurn, hand}: {children: ReactNode, isPlayersTurn: boolean, hand: Array<PlayingCard>}) {
 
     const pos = useRef<{ top: number; left: number }>({
         top: 0,
@@ -37,7 +38,7 @@ export function DragProvider({children, isPlayersTurn }: {children: ReactNode, i
 
     const [isTableOverlapped, setIsTableOverlapped] = useState<boolean>(false);
     const [overlappedCardStack, setOverlappedCardStack] = useState<CardStack | null>(null);
-    const [showMovePrompt, setShowMovePrompt] = useState<boolean>(false);
+    const [showModalPrompt, setShowModalPrompt] = useState<boolean>(false);
 
     function handleMouseDown(
         e: React.MouseEvent<HTMLDivElement>,
@@ -101,8 +102,17 @@ export function DragProvider({children, isPlayersTurn }: {children: ReactNode, i
             return;
         }
         dragEnabled.current = false;
-        setShowMovePrompt(true);
-    },[isPlayersTurn, handleMouseMove]);
+        const possibleMoves = determinePossibleMoves(hand, draggedCardStackObj.current, overlappedCardStackRef.current, isTableOverlappedRef.current);
+        if (possibleMoves.length > 0) {
+            setShowModalPrompt(possibleMoves.length > 0);
+        } else {
+            dragEnabled.current = true;
+            overlappedCardStackRef.current = null;
+            resetDraggedCard();
+            setOverlappedCardStack(null);
+            setIsTableOverlapped(false);
+        }
+    },[isPlayersTurn, handleMouseMove, hand]);
 
     function resetDraggedCard() {
         dragStart.current = null;
@@ -152,7 +162,7 @@ export function DragProvider({children, isPlayersTurn }: {children: ReactNode, i
         resetDraggedCard();
         setOverlappedCardStack(null);
         setIsTableOverlapped(false);
-        setShowMovePrompt(false);
+        setShowModalPrompt(false);
     }
 
     function registerCardStackRef(cardStack: CardStack, cardStackRef: HTMLDivElement | null): void {
@@ -177,7 +187,7 @@ export function DragProvider({children, isPlayersTurn }: {children: ReactNode, i
         handleMouseDown,
         registerCardStackRef,
         registerTableRef,
-        showMovePrompt,
+        showModalPrompt,
         closeModal,
     }
 

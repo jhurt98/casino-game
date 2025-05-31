@@ -222,6 +222,7 @@ h1 {
 }
 
 .content {
+    user-select:none;
     display: flex;
     align-items: center;
     padding-left: 4px;

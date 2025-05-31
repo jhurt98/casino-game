@@ -2,13 +2,13 @@ import { useEffect, useRef, useState } from "react";
 import { useDrag } from "./useDrag.ts";
 import { useGameState } from "./useGameState.ts";
 import type { PlayingCard, CardStack } from "./types.ts";
-import { DragProvider } from "./DragContext.tsx";
 import Card from "./Card.tsx";
 import "./Game.css";
 import { Move } from "./useGameStateWithWebSocket.ts";
 
 function PlayingField() {
     const { gameState, playerId } = useGameState();
+    const { showModalPrompt } = useDrag();
 
     const currentPlayer = gameState.players.find((player) => player.id === playerId) || {
         hand: [],
@@ -21,14 +21,12 @@ function PlayingField() {
 
     return (
         <div className="board">
-        <DragProvider isPlayersTurn={isPlayersTurn}>
         <Table cardStacks={gameState.table} />
-        <MovePromptModal />
+        { showModalPrompt && <MovePromptModal />}
         <div style={{ display: "flex", marginBottom:"96px"}}>
-        <Hand hand={playerHand} isPlayersTurn={isPlayersTurn}/>
-        <Pile pile={playerPile}/>
+            <Hand hand={playerHand} isPlayersTurn={isPlayersTurn}/>
+            <Pile pile={playerPile}/>
         </div>
-        </DragProvider>
         </div>
     );
 }
@@ -132,8 +130,9 @@ function TableControls() {
 //}
 function MovePromptModal()  {
     const { getPossibleMoves } = useGameState();
-    const { showMovePrompt, closeModal, draggedCardStack, overlappedCardStack, isTableOverlapped } = useDrag();
+    const { closeModal, draggedCardStack, overlappedCardStack, isTableOverlapped } = useDrag();
     const moves = getPossibleMoves(draggedCardStack, overlappedCardStack, isTableOverlapped);
+
     function clickHandler(move: Move) {
         return ()=>{
             move.handler();
@@ -141,7 +140,7 @@ function MovePromptModal()  {
         }
     }
     return (
-            <div className="playModal" style={{ display: showMovePrompt ? "flex" : "none" }}>
+            <div className="playModal" style={{ display: "flex" }}>
                 { moves.map(move => <button onClick={clickHandler(move)} key={move.type}>{move.title}</button>) }
                 <button onClick={closeModal} >Close</button>
             </div>
