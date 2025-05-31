@@ -34,20 +34,20 @@ function Game() {
 }
 
 function PointsTable() {
-    const { gameState: {players} } = useGameState();
+    const { gameState: {phase, players} } = useGameState();
     return (
         <table>
             <thead>
                 <tr>
                     <th scope="col">Player</th>
-                    <th scope="col">Points</th>
+                    { phase > 0 && <th scope="col">Points</th> }
                 </tr>
             </thead>
             <tbody>
                 {players.map((player, i) => (
                     <tr key={player.id}>
                         <th scope="row">{`Player ${i + 1}`}</th>
-                        <td>{player.points}</td>
+                        { phase > 0 && <td>{player.points}</td>}
                     </tr>
                 ))}
             </tbody>
@@ -56,21 +56,19 @@ function PointsTable() {
 }
 
 function LeftColumn() {
-    const { gameState: { deckLen, phase, turn } } = useGameState();
+    const { gameState: { phase } } = useGameState();
     const infoString =(()=>{
-        if (phase === 2) {
-            return `ROUND OVER.`;
+        switch(phase) {
+            case 0: return "LOBBY";
+            case 1: return "GAME";
+            case 2: return "ROUND OVER";
         }
-        return `TURN: ${turn.turnCount}`;
     })();
 
     return (
             <div className="column">
                     <h3 style={{ alignSelf: "center" }}>
                         {infoString}
-                    </h3>
-                    <h3 style={{ alignSelf: "center" }}>
-                        {`DECK: ${deckLen} CARDS`}
                     </h3>
                 <PointsTable />
             </div>

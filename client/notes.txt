@@ -1,12 +1,12 @@
 TODO:
-* do a lil more styling  (what exactly idk)
-* consider security issues
 * let players choose a name
 * implement handling disconnects and reconnects
-* implement turn skipping when a player has no cards on the server, right now the player manually has to click a skip turn button
-* add a player table for the lobby to show who's joined
-* don't really need turn count to be displayed?
-* only show points table when game starts
+* consider security issues
+x do a lil more styling  (what exactly idk)
+x implement turn skipping when a player has no cards on the server, right now the player manually has to click a skip turn button
+x add a player table for the lobby to show who's joined
+x don't really need turn count to be displayed?
+x only show points table when game starts
 * show deck as a visible design instead of just count of cards
 * handle deleting game rooms when all players leave 
 x no text selection on cards
