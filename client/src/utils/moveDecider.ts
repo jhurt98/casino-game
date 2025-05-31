@@ -86,7 +86,7 @@ function cardAndStackHaveEqualRank(source: CardStack, target: CardStack) {
 function handHasSumMatch(draggedCardStack: CardStack, cardStack: CardStack, hand: Array<PlayingCard>) {
     const draggedStackRank = draggedCardStack.rank;
     const stackRank = cardStack.rank; 
-    const sum = Number(draggedStackRank) + Number(stackRank);
+    const sum = getRankValue(draggedStackRank) + getRankValue(stackRank);
     if (Number.isNaN(sum)) {
         return false;
     }
@@ -103,3 +103,9 @@ function isFaceRank(rank: string) {
     return rank === "Q" || rank === "K" || rank === "J";
 }
 
+export function getRankValue(rank: string): number {
+    if (rank === "A") {
+        return 1;
+    }
+    return Number(rank);
+}

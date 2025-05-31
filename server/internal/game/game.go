@@ -469,11 +469,7 @@ func cardStackHasCard(cardStack CardStack, card Card) bool {
 
 func deriveNewRank(card Card, cardStack CardStack) string {
     if cardStack.Type == "sum" {
-        a, errA := strconv.Atoi(card.Rank)
-        b, errB := strconv.Atoi(cardStack.Rank)
-        if errA != nil || errB != nil {
-            fmt.Printf("attempt to stack cards with invalid ranks")
-        }
+        a, b := getRankValue(card.Rank), getRankValue(cardStack.Rank)
         return strconv.Itoa(a+b)
     }
     return cardStack.Rank
@@ -486,4 +482,15 @@ func (source CardStack) isEqual(target CardStack) bool {
 		}
 	}
 	return true
+}
+
+func getRankValue(rank string) int {
+    if rank == "A" {
+        return 1
+    }
+    n, err := strconv.Atoi(rank)
+    if err != nil {
+        fmt.Printf("attempt to stack cards with invalid ranks")
+    }
+    return n
 }

@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { GameStateContextType } from "./GameStateContext";
 import { GameState, PlayingCard, CardStack, Player, Turn } from "./types.ts";
-import { determinePossibleMoves } from "./utils/moveDecider.ts";
+import { determinePossibleMoves, getRankValue } from "./utils/moveDecider.ts";
 
 interface Message {
     type: string;
@@ -375,7 +375,6 @@ function useGameStateWithWebsocket() {
         createRoom: createRoom,
         roomId: roomId,
     };
-
     return value;
 }
 
@@ -399,7 +398,8 @@ function functionWithNonNullArguments(f: (...args: any[]) => void,
 * guard sums > 10 */
 function deriveNewCardRank(source: CardStack, target: CardStack, stackType: string) {
     if (stackType === "sum") {
-        const sum = Number(source.rank) + Number(target.rank);
+        const sum = getRankValue(source.rank) + getRankValue(target.rank);
+        console.log(getRankValue(source.rank), getRankValue(target.rank),sum);
         if (Number.isNaN(sum)) { 
             console.error("ermmmm this shouldn't even happen");
             return "";

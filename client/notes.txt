@@ -9,8 +9,8 @@ TODO:
 * only show points table when game starts
 * show deck as a visible design instead of just count of cards
 * handle deleting game rooms when all players leave 
-- no text selection on cards
-- dont show move modal when there are no plays to make/when hand card is
+x no text selection on cards
+x dont show move modal when there are no plays to make/when hand card is
   hovering another hand card
 - Aces count as a "1" when sum stacking
 
