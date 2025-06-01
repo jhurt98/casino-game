@@ -76,8 +76,7 @@ func (s *Server) CreateRoom(w http.ResponseWriter, r *http.Request) {
     fmt.Fprint(w, newRoomID)
 }
 
-// does having the name as an argument even make sense?
-// POST /join/{roomId}/{playerName}
+// POST /join/{roomId}/?playerName={playerName}
 func (s *Server) JoinRoom(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Access-Control-Allow-Origin", "*")
     roomId := r.PathValue("roomId")
@@ -104,7 +103,6 @@ func (s *Server) JoinRoom(w http.ResponseWriter, r *http.Request) {
     fmt.Fprint(w, playerId)
 }
 
-// ws /gameconnect/{roomId}/{playerId} 
 func (s *Server) GameConnect(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Access-Control-Allow-Origin", "*")
     roomId := r.PathValue("roomId")
@@ -197,9 +195,6 @@ func (r *Room) handlePlayerMove(playerId string, msg GameMessage) {
     r.checkError(err, playerId)
     r.Engine.ProcessMove(playerMove)
     r.Broadcast("state", websocket.TextMessage, r.Engine.GetStateJsonForPlayer)
-    /* if state.Phase == RoundOver: client has round over prompt with a ready up button
-       server starts a timeout for starting the next round. or sends the function if all players ready beforehand.
-    */
     if r.Engine.State.Phase == game.PhaseRoundOver {
         r.initAcks()
     }

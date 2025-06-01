@@ -155,46 +155,22 @@ func (e *Engine) GetStateJsonForPlayer(playerId string) json.RawMessage {
 	e.State.mu.Lock()
 	defer e.State.mu.Unlock()
 
-	// Create a temporary struct for marshaling
-	type PlayerView struct {
-		Id       string `json:"id"`
-		Points   int    `json:"points"`
-		Hand     []Card `json:"hand,omitempty"`
-		Pile     []Card `json:"pile"`
-		HandSize int    `json:"handSize"`
-        Name     string `json:"name"`
-	}
-
 	type GameStateView struct {
 		Table   []CardStack  `json:"table"`
-		Players []PlayerView `json:"players"`
+		Players []Player`json:"players"`
 		Turn    *Turn        `json:"turn"`
 		DeckLen int          `json:"deckLen"`
 		Phase   GamePhase    `json:"phase"`
 	}
 
+
+    players := e.makePlayersCopyForView(playerId)
 	view := GameStateView{
 		Table:   e.State.Table,
 		Turn:    e.State.Turn,
-		Players: make([]PlayerView, len(e.State.Players)),
+		Players: players,
 		DeckLen: len(e.State.Deck),
 		Phase:   e.State.Phase,
-	}
-	for i, p := range e.State.Players {
-		pv := PlayerView{
-			Id:       p.Id,
-			Points:   p.Points,
-			Pile:     p.Pile,
-			HandSize: len(p.Hand),
-            Name:     p.Name,
-		}
-
-		// Only include hand for the current player
-		if p.Id == playerId {
-			pv.Hand = p.Hand
-		}
-
-		view.Players[i] = pv
 	}
 
 	data, err := json.Marshal(view)
@@ -208,37 +184,12 @@ func (e *Engine) GetStateJsonForPlayer(playerId string) json.RawMessage {
 func (e *Engine) GetPlayersJsonForPlayer(playerId string) json.RawMessage {
 	e.State.mu.Lock()
 	defer e.State.mu.Unlock()
-	type PlayerView struct {
-		Id       string `json:"id"`
-		Points   int    `json:"points"`
-		Hand     []Card `json:"hand,omitempty"`
-		Pile     []Card `json:"pile"`
-		HandSize int    `json:"handSize"`
-        Name     string `json:"name"`
-	}
-
 	type View struct {
-		AllPlayers []PlayerView `json:"allPlayers"`
+		AllPlayers []Player `json:"allPlayers"`
 		MyPlayerId string       `json:"myPlayerId"`
 	}
 
-	allPlayers := make([]PlayerView, len(e.State.Players))
-	for i, p := range e.State.Players {
-		pv := PlayerView{
-			Id:       p.Id,
-			Points:   p.Points,
-			Pile:     p.Pile,
-			HandSize: len(p.Hand),
-            Name:     p.Name,
-		}
-
-		// Only include hand for the current player
-		if p.Id == playerId {
-			pv.Hand = p.Hand
-		}
-
-		allPlayers[i] = pv
-	}
+	allPlayers := e.makePlayersCopyForView(playerId)
 	view := View{AllPlayers: allPlayers, MyPlayerId: playerId}
 	data, err := json.Marshal(view)
 	if err != nil {
@@ -505,4 +456,16 @@ func getRankValue(rank string) int {
         fmt.Printf("attempt to stack cards with invalid ranks")
     }
     return n
+}
+
+func (e *Engine)  makePlayersCopyForView(playerId string) []Player {
+    players := make([]Player, len(e.State.Players))
+	for i, p := range e.State.Players {
+		pc := *p
+		if p.Id != playerId {
+			pc.Hand = nil
+		}
+		players[i] = pc 
+	}
+    return players
 }
