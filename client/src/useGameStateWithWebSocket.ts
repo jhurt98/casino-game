@@ -112,7 +112,11 @@ function useGameStateWithWebsocket() {
             const socket = new WebSocket(`ws://localhost:8080/gameconnect/${roomID}/${playerID}`);
             setPlayerId(playerID);
             socket.onmessage = wsOnMessage; 
-            socket.onopen = ()=>{setRoomId(roomID)};
+            socket.onopen = ()=>{
+                sessionStorage.setItem("playerId", playerID);
+                sessionStorage.setItem("roomID", roomID);
+                setRoomId(roomID)
+            };
             socket.addEventListener("error", (event) => {
                 console.log(event);
             });
@@ -125,14 +129,19 @@ function useGameStateWithWebsocket() {
     async function createRoom(playerName: string) {
         try {
             const response = await fetch('http://localhost:8080/createRoom', {method: "POST"});
-            const roomId = await response.text();
-            const joinResponse = await fetch(`http://localhost:8080/join/${roomId}?playerName=${playerName}`, {method: "POST"});
-            const playerId = await joinResponse.text();
-            const socket = new WebSocket(`ws://localhost:8080/gameconnect/${roomId}/${playerId}`);
+            const roomID = await response.text();
+            const joinResponse = await fetch(`http://localhost:8080/join/${roomID}?playerName=${playerName}`, {method: "POST"});
+            const playerID = await joinResponse.text();
+            const socket = new WebSocket(`ws://localhost:8080/gameconnect/${roomID}/${playerID}`);
             socket.onmessage = wsOnMessage; 
             socket.addEventListener("error", (event) => {
                 console.log(event);
             });
+            socket.onopen = ()=>{
+                sessionStorage.setItem("playerId", playerID);
+                sessionStorage.setItem("roomID", roomID);
+                setRoomId(roomID)
+            };
             socketRef.current = socket;
             setRoomId(roomId);
             setPlayerId(playerId);

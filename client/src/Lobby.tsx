@@ -2,7 +2,6 @@ import { useRef } from "react";
 import { useGameState } from "./useGameState.ts";
 import "./Lobby.css";
 function Lobby() {
-    const ws = useRef<WebSocket | null>(null);
     const nameInput = useRef<HTMLInputElement | null>(null); 
     const roomIDInput = useRef<HTMLInputElement | null>(null);
 
@@ -32,7 +31,6 @@ function Lobby() {
 
     return (
         <div className="lobby">
-            <h3>Create or Join an Existing Room</h3>
             <div className="lobbyForm">
                 <input ref={nameInput} name="playerName" placeholder="Name"/>
                 { roomId === "" && <input ref={roomIDInput} name="roomId" placeholder="Room ID"/> }
@@ -41,6 +39,7 @@ function Lobby() {
                 <button type="button" onClick={startGame}>Start Game</button>
             </div>
             <div>
+            <h3>Create or Join an Existing Room</h3>
                 <strong>GameRoom</strong> <span id="grStatus">{roomId === "" ? "No Game Room" : roomId }</span>
                 { playerList }
             </div>
