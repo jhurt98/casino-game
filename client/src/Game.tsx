@@ -14,7 +14,6 @@ function Game() {
         points: 0,
         id: "undefined",
     };
-
     function renderGamePhase() {
         switch(gameState.phase){
             case 0: return <Lobby/>;
@@ -23,12 +22,12 @@ function Game() {
             default: return <Lobby/>;
         }
     }
+
     return (
         <div className="game">
             <h1>&#127183;</h1>
             <LeftColumn/>
             {renderGamePhase()}
-            <Buttons/>
         </div>
     );
 }
@@ -57,29 +56,10 @@ function PointsTable() {
 
 function LeftColumn() {
     const { gameState: { phase } } = useGameState();
-    const infoString =(()=>{
-        switch(phase) {
-            case 0: return "LOBBY";
-            case 1: return "GAME";
-            case 2: return "ROUND OVER";
-        }
-    })();
 
     return (
             <div className="column">
-                    <h3 style={{ alignSelf: "center" }}>
-                        {infoString}
-                    </h3>
-                <PointsTable />
-            </div>
-    );
-}
-
-function Buttons() {
-    const { skipTurn } = useGameState();
-    return (
-            <div className="column">
-                <button onClick={skipTurn}>Skip Turn</button>
+            { phase === 2 && <PointsTable /> }
             </div>
     );
 }
@@ -89,14 +69,11 @@ function NextRoundModal() {
     const [countDown, setCountDown] = useState<number>(10);
     const timeoutRef = useRef<number | undefined>(undefined);
     const tickRef = useRef<number | undefined>(undefined);
-    // make this equal to gamephase.roundOver?
     const show = phase === 2;
     const style = { display: show ? "flex" : "none" };
-
     const updateTimer = useCallback(()=>{
         setCountDown((prev: number) =>  { return --prev} );
     },[]);
-
     const handleReadyUp = useCallback(()=>{
         clearTimeout(timeoutRef.current);
         handleReadyAck();

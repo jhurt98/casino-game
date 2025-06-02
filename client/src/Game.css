@@ -147,6 +147,7 @@
 }
 
 table {
+    border-collapse: collapse;
     align-self: center;
     border: 2px solid rgb(140 140 140);
     max-height: 100px;
@@ -273,12 +274,16 @@ h1 {
 }
 
 .lobbyForm button {
-    margin-top: 18px;
-    width: 160px;
+    margin-top: 8px;
+    width: 200px;
     align-self: center;
     font-size: 18px;
     cursor: pointer;
     height: 32px;
+}
+
+.lobby #greendot {
+    color: green;
 }
 
 p {

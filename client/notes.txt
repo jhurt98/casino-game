@@ -1,5 +1,5 @@
 TODO:
-* let players choose a name
+x let players choose a name
 * implement handling disconnects and reconnects
 * consider security issues
 x do a lil more styling  (what exactly idk)

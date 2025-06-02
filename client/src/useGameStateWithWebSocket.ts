@@ -78,7 +78,6 @@ function useGameStateWithWebsocket() {
                 normalizePlayer(player),
             ) as Array<Player>;
             const myPlayerId: string = message.data.myPlayerId;
-            console.log("players", players);
             const newGameState: GameState = { ...gameState, players: players, } as GameState;
                 setGameState(newGameState);
                 setPlayerId(myPlayerId);
@@ -107,13 +106,13 @@ function useGameStateWithWebsocket() {
     }
 
     async function joinRoom(roomID: string, playerName: string) {
-        console.log("playername:", playerName);
         try {
             const response = await fetch(`http://localhost:8080/join/${roomID}?playerName=${playerName}`, {method: "POST"});
             const playerID = await response.text();
             const socket = new WebSocket(`ws://localhost:8080/gameconnect/${roomID}/${playerID}`);
             setPlayerId(playerID);
             socket.onmessage = wsOnMessage; 
+            socket.onopen = ()=>{setRoomId(roomID)};
             socket.addEventListener("error", (event) => {
                 console.log(event);
             });
@@ -123,7 +122,6 @@ function useGameStateWithWebsocket() {
         }
     }
 
-    // this is kinda awkward no? 
     async function createRoom(playerName: string) {
         try {
             const response = await fetch('http://localhost:8080/createRoom', {method: "POST"});
