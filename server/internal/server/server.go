@@ -150,7 +150,7 @@ func (s *Server) GameConnect(w http.ResponseWriter, r *http.Request) {
         }
         room.Broadcast(websocket.TextMessage, connectMsg)
 
-		gameMessage := GameMessage{Type: "join", Data: room.engine.GetPlayersJsonForPlayer(playerId)}
+		gameMessage := GameMessage{Type: "state", Data: room.engine.GetStateJsonForPlayer(playerId)}
 		response, err := json.Marshal(gameMessage)
 		room.checkError(err, playerId)
 		room.conns[playerId].conn.WriteMessage(websocket.TextMessage, response)
