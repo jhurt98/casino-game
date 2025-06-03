@@ -38,6 +38,7 @@ function normalizePlayer(data: Player): Player {
         pile: data.pile ?? [],
         points: data.points ?? 0,
         name: data.name ?? "Player",
+        connected: data.connected ?? true,
     };
 }
 
@@ -52,6 +53,7 @@ function useGameStateWithWebsocket() {
     const [playerId, setPlayerId] = useState<string>("");
     const [tableHistory, setTableHistory] = useState<Array<Array<CardStack>>>([]);
     const [roomId, setRoomId] = useState<string>("");
+    const gameStateRef = useRef<GameState>(gameState);
     const socketRef = useRef<WebSocket | null>(null);
     const currentPlayer = gameState.players.find((player) => player.id === playerId) || {
         hand: [],
@@ -71,6 +73,10 @@ function useGameStateWithWebsocket() {
         };
     }, []);
 
+    useEffect(()=> {
+        gameStateRef.current = gameState;
+    }, [gameState]);
+
     function wsOnMessage(event) {
         const message = JSON.parse(event.data);
         if (message.type === "join") {
@@ -78,9 +84,9 @@ function useGameStateWithWebsocket() {
                 normalizePlayer(player),
             ) as Array<Player>;
             const myPlayerId: string = message.data.myPlayerId;
-            const newGameState: GameState = { ...gameState, players: players, } as GameState;
-                setGameState(newGameState);
-                setPlayerId(myPlayerId);
+            const newGameState: GameState = { ...gameStateRef.current, players: players, } as GameState;
+            setGameState(newGameState);
+            setPlayerId(myPlayerId);
         } else if (message.type === "state") {
             const players: Array<Player> = message.data.players.map((player: Player) =>
                 normalizePlayer(player),
@@ -89,11 +95,28 @@ function useGameStateWithWebsocket() {
             const turn: Turn = message.data.turn as Turn;
             const deckLen: number = message.data.deckLen;
             const phase: number = message.data.phase;
-            //console.log(message.data);
             players.forEach((player) => { normalizeCards(player.hand, "hand"); normalizeCards(player.pile, "pile");});
-            table.forEach((cardStack) => {normalizeCards(cardStack.cards, "table");});
-            setTableHistory([table]);
+            table.forEach((cardStack) => { normalizeCards(cardStack.cards, "table"); });
             const newGameState: GameState = { deckLen: deckLen, table: table, turn: turn, players: players, phase: phase, } as GameState;
+            setTableHistory([table]);
+            setGameState(newGameState);
+        } else if (message.type === "disconnect") {
+            const disconnectedPlayerId = message.data.playerId;
+            const newPlayers = [ ...gameStateRef.current.players ];
+            const disconnectedPlayer = newPlayers.find(player => player.id === disconnectedPlayerId);
+            if (disconnectedPlayer !== undefined) {
+                disconnectedPlayer.connected = false;
+            }
+            const newGameState: GameState = { ...gameStateRef.current, players: newPlayers, } as GameState;
+            setGameState(newGameState);
+        } else if (message.type === "connect") {
+            const disconnectedPlayerId = message.data.playerId;
+            const newPlayers = [ ...gameStateRef.current.players ];
+            const disconnectedPlayer = newPlayers.find(player => player.id === disconnectedPlayerId);
+            if (disconnectedPlayer !== undefined) {
+                disconnectedPlayer.connected = true;
+            }
+            const newGameState: GameState = { ...gameStateRef.current, players: newPlayers, } as GameState;
             setGameState(newGameState);
         }
     }
@@ -107,13 +130,14 @@ function useGameStateWithWebsocket() {
 
     async function joinRoom(roomID: string, playerName: string) {
         try {
-            const response = await fetch(`http://localhost:8080/join/${roomID}?playerName=${playerName}`, {method: "POST"});
+            const response = await fetch(`http://localhost:8080/joinRoom/${roomID}?playerName=${playerName}`, {method: "POST"});
             const playerID = await response.text();
+            console.log("joined room", playerID);
             const socket = new WebSocket(`ws://localhost:8080/gameconnect/${roomID}/${playerID}`);
             setPlayerId(playerID);
             socket.onmessage = wsOnMessage; 
             socket.onopen = ()=>{
-                sessionStorage.setItem("playerId", playerID);
+                sessionStorage.setItem("playerID", playerID);
                 sessionStorage.setItem("roomID", roomID);
                 setRoomId(roomID)
             };
@@ -130,7 +154,7 @@ function useGameStateWithWebsocket() {
         try {
             const response = await fetch('http://localhost:8080/createRoom', {method: "POST"});
             const roomID = await response.text();
-            const joinResponse = await fetch(`http://localhost:8080/join/${roomID}?playerName=${playerName}`, {method: "POST"});
+            const joinResponse = await fetch(`http://localhost:8080/joinRoom/${roomID}?playerName=${playerName}`, {method: "POST"});
             const playerID = await joinResponse.text();
             const socket = new WebSocket(`ws://localhost:8080/gameconnect/${roomID}/${playerID}`);
             socket.onmessage = wsOnMessage; 
@@ -148,18 +172,29 @@ function useGameStateWithWebsocket() {
         } catch (e) {
             console.log('❌ Create room failed: ' + e.message);
         }
-     }
-
-    function startGame() {
-        if (socketRef.current === null) {
-            return;
-        }
-        const message: Message = {
-            type: "start",
-            data: {},
-        };
-        socketRef.current.send(JSON.stringify(message));
     }
+
+     const reconnectToGame = useCallback((roomID:string, playerID:string) => {
+         const socket = new WebSocket(`ws://localhost:8080/gameconnect/${roomID}/${playerID}`);
+         socket.onmessage = wsOnMessage; 
+         socket.addEventListener("error", (event) => {
+             console.log(event);
+         });
+         socketRef.current = socket;
+         setPlayerId(playerID);
+         setRoomId(roomID)
+     },[]);
+
+     function startGame() {
+         if (socketRef.current === null) {
+             return;
+         }
+         const message: Message = {
+             type: "start",
+             data: {},
+         };
+         socketRef.current.send(JSON.stringify(message));
+     }
 
     const handleReadyAck = useCallback(() => {
         if (socketRef.current === null) {
@@ -381,6 +416,7 @@ function useGameStateWithWebsocket() {
         resetTableHistory: resetTableHistory,
         createRoom: createRoom,
         roomId: roomId,
+        reconnectToGame: reconnectToGame,
     };
     return value;
 }

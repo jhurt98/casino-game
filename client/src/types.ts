@@ -30,4 +30,5 @@ export interface Player {
     pile: Array<PlayingCard>;
     points: number;
     name: string;
+    connected: boolean;
 }

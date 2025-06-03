@@ -153,7 +153,8 @@ table {
     max-height: 100px;
     font-size: 10px;
     width: auto;
-    min-width: 144px;
+    min-width: 184px;
+    margin-top: 128px;
 }
 
 .column button {
@@ -283,8 +284,16 @@ h1 {
     height: 32px;
 }
 
-.lobby #greendot {
+.lobby #greenDot {
     color: green;
+}
+
+.lobby #redDot {
+    color: red;
+}
+
+#greenDot, #redDot {
+    margin-right: 8px;
 }
 
 p {

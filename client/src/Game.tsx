@@ -56,10 +56,9 @@ function PointsTable() {
 
 function LeftColumn() {
     const { gameState: { phase } } = useGameState();
-
     return (
             <div className="column">
-            { phase === 2 && <PointsTable /> }
+            { phase === 1 && <PointsTable /> }
             </div>
     );
 }

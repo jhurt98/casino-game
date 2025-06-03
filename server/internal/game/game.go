@@ -121,6 +121,10 @@ func (e *Engine) RemovePlayer(playerId string) {
 	e.State.mu.Unlock()
 }
 
+func (e *Engine) HasPlayer(playerId string) bool {
+    return slices.ContainsFunc(e.State.Players, func(player *Player) bool { return player.Id == playerId } )
+}
+
 func (e *Engine) ProcessMove(move PlayerMove) {
 	e.State.mu.Lock()
 	if move.MoveType == "toss" {
