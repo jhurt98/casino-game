@@ -169,10 +169,17 @@ func (s *Server) GameConnect(w http.ResponseWriter, r *http.Request) {
                 Data: json.RawMessage(`{"playerId": "` + playerId + `"}`),
             }
             room.Broadcast(websocket.TextMessage, disconnectMsg)
-            /*
-	r.engine.RemovePlayer(playerId)
-	delete(r.conns, playerId)
-            */
+            go func() {
+                time.Sleep(30*time.Second)
+                room.mu.Lock()
+	            room.engine.RemovePlayer(playerId)
+	            delete(room.conns, playerId)
+                room.mu.Unlock()
+                if len(room.conns) == 0 {
+                    delete(s.rooms,room.id)
+                }
+	            room.BroadcastEngineUpdate("join", websocket.TextMessage, room.engine.GetPlayersJsonForPlayer)
+            }()
 			return
 		}
 		msg := GameMessage{}
@@ -185,7 +192,7 @@ func (s *Server) GameConnect(w http.ResponseWriter, r *http.Request) {
 func (r *Room) SetConnection(playerId string, conn *websocket.Conn) {
     r.mu.Lock()
     r.conns[playerId].conn = conn
-    r.conns[playerId].conn = nil
+    r.conns[playerId].disconnectedAt = nil
     r.mu.Unlock()
 }
 
@@ -208,17 +215,17 @@ func (r *Room) HandleMessage(playerId string, msg GameMessage) {
 	}
 }
 
-func (r *Room) Broadcast(wsMsgType int, gameMsg GameMessage) {
-	r.mu.Lock()
-	for pId, pConn := range r.conns {
-        if pConn.disconnectedAt == nil {
-		    msg, err := json.Marshal(gameMsg)
-		    r.checkError(err, pId)
-		    pConn.conn.WriteMessage(wsMsgType, msg)
+    func (r *Room) Broadcast(wsMsgType int, gameMsg GameMessage) {
+        r.mu.Lock()
+        for pId, pConn := range r.conns {
+            if pConn.disconnectedAt == nil {
+                msg, err := json.Marshal(gameMsg)
+                r.checkError(err, pId)
+                pConn.conn.WriteMessage(wsMsgType, msg)
+            }
         }
-	}
-	r.mu.Unlock()
-}
+        r.mu.Unlock()
+    }
 
 func (r *Room) BroadcastEngineUpdate(messageViewType string, wsMsgType int, buildMessageView func(playerId string) json.RawMessage) {
 	r.mu.Lock()
