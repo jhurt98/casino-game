@@ -329,7 +329,7 @@ func (r *Room) checkAllReady() bool {
 func checkOrigin(r *http.Request) bool {
 	origin := r.Header.Get("Origin")
 	InfoLogger.Printf("Request from origin: %v\n", origin)
-	return origin == "http://192.168.0.120:5173" || origin == "http://localhost:5173" || origin == "localhost" || origin == "null" || origin == "http://localhost:3000"
+	return origin == "http://192.168.0.120:5173" || origin == "http://localhost:5173" || origin == "localhost" || origin == "null" || origin == "http://192.168.0.137:3000"
 }
 
 func (r *Room) checkError(err error) error {
