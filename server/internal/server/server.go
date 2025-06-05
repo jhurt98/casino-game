@@ -11,6 +11,7 @@ import (
 	"os"
 	"sync"
 	"time"
+	"log"
 )
 
 type GameMessage struct {
@@ -42,6 +43,12 @@ type PlayerConnection struct {
 	msgCount       int
 }
 
+var (
+	InfoLogger = log.New(os.Stdout, "INFO: ", log.Ldate|log.Ltime|log.Lshortfile)
+	ErrorLogger = log.New(os.Stderr, "ERROR: ", log.Ldate|log.Ltime|log.Lshortfile)
+	WarnLogger = log.New(os.Stdout, "WARN: ", log.Ldate|log.Ltime|log.Lshortfile)
+)
+
 func NewServer() *Server {
 	return &Server{
 		router: http.NewServeMux(),
@@ -62,11 +69,10 @@ func (s *Server) Handler() http.Handler {
 
 func (s *Server) Start() {
 	s.SetupRoutes()
-	fmt.Printf("server started\n")
+	InfoLogger.Printf("Server Started\n")
 	err := http.ListenAndServe(":8080", s.Handler())
 	if err != nil {
-		fmt.Printf("error returned from http.ListenAndServe\nerror: %v\n", err)
-		os.Exit(1)
+		ErrorLogger.Fatalf("Error returned from http.ListenAndServe\nerror: %v\n", err)
 	}
 }
 
@@ -88,15 +94,14 @@ func (s *Server) JoinRoom(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Access-Control-Allow-Origin", "*")
 	roomId := r.PathValue("roomId")
 	playerName := r.URL.Query().Get("playerName")
-	fmt.Printf("roomId: %v, playerName: %v\n", roomId, playerName)
 	if roomId == "" {
-		fmt.Println("empty room id string")
+		WarnLogger.Println("Called /join with empty string.")
 		http.Error(w, "Room ID required.", http.StatusBadRequest)
 		return
 	}
 	room, in := s.rooms[roomId]
 	if !in {
-		fmt.Println("room does not exist")
+		WarnLogger.Printf("Did not find room with id: %v\n", roomId)
 		http.Error(w, "room does not exist", http.StatusNotFound)
 		return
 	}
@@ -106,9 +111,9 @@ func (s *Server) JoinRoom(w http.ResponseWriter, r *http.Request) {
 		playerName = fmt.Sprintf("Player %v", len(room.playerConns)+1)
 	}
 	room.playerConns[playerId] = &PlayerConnection{name: playerName, id: playerId, disconnectedAt: nil}
-    fmt.Printf("room.playerConns: %+v\n", room.playerConns)
 	room.mu.Unlock()
 	fmt.Fprint(w, playerId)
+	InfoLogger.Printf("%v joined %v\n", playerName, roomId) 
 }
 
 func (s *Server) GameConnect(w http.ResponseWriter, r *http.Request) {
@@ -117,16 +122,18 @@ func (s *Server) GameConnect(w http.ResponseWriter, r *http.Request) {
 	playerId := r.PathValue("playerId")
 	room, in := s.rooms[roomId]
 	if !in {
+		WarnLogger.Printf("GameConnect: roomId does not exist: %v\n", roomId)
 		http.Error(w, "room does not exist", http.StatusNotFound)
 		return
 	}
 	playerConn, playerJoined := room.playerConns[playerId]
 	if !playerJoined {
+		WarnLogger.Printf("GameConnect: player is not in the room %v %v\n", playerId, roomId)
 		http.Error(w, "player is not connected", http.StatusNotFound)
 		return
 	}
 
-	fmt.Printf("connecting %v\n", playerConn.name)
+	InfoLogger.Printf("connecting %v\n", playerConn.name)
 	var upgrader = websocket.Upgrader{
 		ReadBufferSize:  1024,
 		WriteBufferSize: 1024,
@@ -135,7 +142,7 @@ func (s *Server) GameConnect(w http.ResponseWriter, r *http.Request) {
 
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
-		fmt.Printf("failed upgrading connection from %v\n%v\n", r, err)
+		WarnLogger.Printf("Failed upgrading connection from %v\n%v\n", r, err)
 		return
 	}
 
@@ -154,15 +161,15 @@ func (s *Server) GameConnect(w http.ResponseWriter, r *http.Request) {
 
 		gameMessage := GameMessage{Type: "state", Data: room.engine.GetStateJsonForPlayer(playerId)}
 		response, err := json.Marshal(gameMessage)
-		room.checkError(err, playerId)
+		room.checkError(err)
 		playerConn.conn.WriteMessage(websocket.TextMessage, response)
     }
 
-	fmt.Println("opened ws with", r.Header.Get("Origin"))
+	InfoLogger.Println("Opened ws with", r.Header.Get("Origin"))
 
 	for {
 		_, message, err := conn.ReadMessage()
-		if err = room.checkError(err, playerId); err != nil {
+		if err = room.checkError(err); err != nil {
             t := time.Now()
             playerConn.disconnectedAt = &t
 			playerConn.conn = nil
@@ -182,6 +189,7 @@ func (s *Server) GameConnect(w http.ResponseWriter, r *http.Request) {
                 room.mu.Unlock()
                 if len(room.playerConns) == 0 {
                     delete(s.rooms,room.id)
+					InfoLogger.Printf("Deleted room: %v\n", room.id)
                 }
 	            room.BroadcastEngineUpdate("join", websocket.TextMessage, room.engine.GetPlayersJsonForPlayer)
             }()
@@ -189,7 +197,7 @@ func (s *Server) GameConnect(w http.ResponseWriter, r *http.Request) {
 		}
 		msg := GameMessage{}
 		err = json.Unmarshal(message, &msg)
-		room.checkError(err, playerId)
+		room.checkError(err)
 		room.HandleMessage(playerId, msg)
 	}
 }
@@ -224,20 +232,20 @@ func (r *Room) HandleMessage(playerId string, msg GameMessage) {
 	case "join":
 		r.handleJoinGame(playerId)
 	case "playerMove":
-		r.handlePlayerMove(playerId, msg)
+		r.handlePlayerMove(msg)
 	case "readyAck":
 		r.handlePlayerReadyAck(playerId)
 	default:
-		fmt.Printf("unknown message type: %+v", msg.Type)
+		WarnLogger.Printf("Unknown message type: %+v", msg.Type)
 	}
 }
 
     func (r *Room) Broadcast(wsMsgType int, gameMsg GameMessage) {
         r.mu.Lock()
-        for pId, pConn := range r.playerConns {
+        for _, pConn := range r.playerConns {
             if pConn.conn != nil {
                 msg, err := json.Marshal(gameMsg)
-                r.checkError(err, pId)
+                r.checkError(err)
                 pConn.conn.WriteMessage(wsMsgType, msg)
             }
         }
@@ -250,7 +258,7 @@ func (r *Room) BroadcastEngineUpdate(messageViewType string, wsMsgType int, buil
 		gameMessage := GameMessage{Type: messageViewType, Data: buildMessageView(playerId)}
 		response, err := json.Marshal(gameMessage)
 		//fmt.Printf("message response size in bytes: %v\n\n", len(response))
-		r.checkError(err, playerId)
+		r.checkError(err)
 		err = pConn.conn.WriteMessage(wsMsgType, response)
 	}
 	r.mu.Unlock()
@@ -266,10 +274,10 @@ func (r *Room) handleJoinGame(playerId string) {
 	r.BroadcastEngineUpdate("join", websocket.TextMessage, r.engine.GetPlayersJsonForPlayer)
 }
 
-func (r *Room) handlePlayerMove(playerId string, msg GameMessage) {
+func (r *Room) handlePlayerMove(msg GameMessage) {
 	playerMove := game.PlayerMove{}
 	err := json.Unmarshal(msg.Data, &playerMove)
-	r.checkError(err, playerId)
+	r.checkError(err)
 	r.engine.ProcessMove(playerMove)
 	r.BroadcastEngineUpdate("state", websocket.TextMessage, r.engine.GetStateJsonForPlayer)
 	if r.engine.State.Phase == game.PhaseRoundOver {
@@ -278,7 +286,6 @@ func (r *Room) handlePlayerMove(playerId string, msg GameMessage) {
 }
 
 func (r *Room) handlePlayerReadyAck(playerId string) {
-	fmt.Printf("got a ready ack from: %v. during gamephase %v\n", playerId, r.engine.State.Phase)
 	if r.engine.State.Phase != game.PhaseRoundOver {
 		return
 	}
@@ -321,24 +328,20 @@ func (r *Room) checkAllReady() bool {
 
 func checkOrigin(r *http.Request) bool {
 	origin := r.Header.Get("Origin")
-	fmt.Printf("origin: %v\n", origin)
+	InfoLogger.Printf("Request from origin: %v\n", origin)
 	return origin == "http://192.168.0.120:5173" || origin == "http://localhost:5173" || origin == "localhost" || origin == "null"
 }
 
-func (r *Room) checkError(err error, playerId string) error {
-	conn := r.playerConns[playerId]
+func (r *Room) checkError(err error) error {
 	if err == nil {
 		return nil
 	}
 	if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseNormalClosure, websocket.CloseAbnormalClosure) {
-		fmt.Printf("--- error: %v\n", err)
+		ErrorLogger.Printf("%v\n", err)
 	} else if websocket.IsCloseError(err, websocket.CloseNormalClosure, websocket.CloseGoingAway) {
-		fmt.Printf("----- normal close: %v -----\n", err)
-	} else if conn == nil {
-		fmt.Printf("----- failed to upgrade websocket with error: %+v\n", err)
-	}
-	if len(r.playerConns) == 0 {
-		r.engine.ResetGame()
+		InfoLogger.Printf("normal close: %v\n", err)
+	} else {
+		ErrorLogger.Printf("%v\n", err)
 	}
 	return err
 }
@@ -354,19 +357,6 @@ func generateRoomID() string {
 	rand.Read(b)
 	return base64.URLEncoding.EncodeToString(b)
 }
-
-// func (r *Room) printConnections() {
-// 	fmt.Printf("connections %+v\n", r.playerConns)
-// }
-//
-// func marshalGameMessage(msgType string, data json.RawMessage) []byte {
-// 	gameMessage := GameMessage{Type: msgType, Data: data}
-// 	res, err := json.Marshal(gameMessage)
-// 	if err != nil {
-// 		fmt.Printf("error calling json.Marshall on %+v\nError message: %+v\n", gameMessage, err)
-// 	}
-// 	return res
-// }
 
 func (server *Server) testHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Access-Control-Allow-Origin", "http://localhost:5173")
