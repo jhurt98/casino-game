@@ -28,3 +28,4 @@ dist-ssr
 # go binary
 server/server
 server/cmd/server
+static-server/static-server

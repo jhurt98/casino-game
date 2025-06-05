@@ -48,6 +48,10 @@ function normalizeCards(data: Array<PlayingCard>, location: string): void {
     });
 }
 
+const hostname = window.location.hostname === 'localhost' ? 'localhost' : '192.168.0.137';
+const apiUrl = `http://${hostname}:8000`;
+const wsUrl = `ws://${hostname}:8000`;
+
 function useGameStateWithWebsocket() {
     const [gameState, setGameState] = useState<GameState>(defaultGameState);
     const [playerId, setPlayerId] = useState<string>("");
@@ -130,10 +134,10 @@ function useGameStateWithWebsocket() {
 
     async function joinRoom(roomID: string, playerName: string) {
         try {
-            const response = await fetch(`http://localhost:8080/joinRoom/${roomID}?playerName=${playerName}`, {method: "POST"});
+            const response = await fetch(`${apiUrl}/joinRoom/${roomID}?playerName=${playerName}`, {method: "POST"});
             const playerID = await response.text();
             console.log("joined room", playerID);
-            const socket = new WebSocket(`ws://localhost:8080/gameconnect/${roomID}/${playerID}`);
+            const socket = new WebSocket(`${wsUrl}/gameconnect/${roomID}/${playerID}`);
             setPlayerId(playerID);
             socket.onmessage = wsOnMessage; 
             socket.onopen = ()=>{
@@ -154,11 +158,11 @@ function useGameStateWithWebsocket() {
 
     async function createRoom(playerName: string) {
         try {
-            const response = await fetch('http://localhost:8080/createRoom', {method: "POST"});
+            const response = await fetch(`${apiUrl}/createRoom`, {method: "POST"});
             const roomID = await response.text();
-            const joinResponse = await fetch(`http://localhost:8080/joinRoom/${roomID}?playerName=${playerName}`, {method: "POST"});
+            const joinResponse = await fetch(`${apiUrl}/joinRoom/${roomID}?playerName=${playerName}`, {method: "POST"});
             const playerID = await joinResponse.text();
-            const socket = new WebSocket(`ws://localhost:8080/gameconnect/${roomID}/${playerID}`);
+            const socket = new WebSocket(`${wsUrl}/gameconnect/${roomID}/${playerID}`);
             socket.onmessage = wsOnMessage; 
             socket.addEventListener("error", (event) => {
                 console.log(event);
@@ -179,7 +183,7 @@ function useGameStateWithWebsocket() {
     }
 
      const reconnectToGame = useCallback((roomID:string, playerID:string) => {
-         const socket = new WebSocket(`ws://localhost:8080/gameconnect/${roomID}/${playerID}`);
+         const socket = new WebSocket(`${wsUrl}/gameConnect/${roomID}/${playerID}`);
          socket.onmessage = wsOnMessage; 
          socket.addEventListener("error", (event) => {
              console.log(event);

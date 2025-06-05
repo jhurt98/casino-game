@@ -70,7 +70,7 @@ func (s *Server) Handler() http.Handler {
 func (s *Server) Start() {
 	s.SetupRoutes()
 	InfoLogger.Printf("Server Started\n")
-	err := http.ListenAndServe(":8080", s.Handler())
+	err := http.ListenAndServe(":8000", s.Handler())
 	if err != nil {
 		ErrorLogger.Fatalf("Error returned from http.ListenAndServe\nerror: %v\n", err)
 	}
