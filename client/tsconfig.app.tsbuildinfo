@@ -1,0 +1,1 @@
+{"root":["./src/App.tsx","./src/Card.tsx","./src/DragContext.tsx","./src/Game.tsx","./src/GameStateContext.tsx","./src/Lobby.tsx","./src/PlayingField.tsx","./src/main.tsx","./src/types.ts","./src/useDrag.ts","./src/useGameState.ts","./src/useGameStateWithWebSocket.ts","./src/vite-env.d.ts","./src/utils/collisionUtils.ts","./src/utils/moveDecider.ts"],"version":"5.6.2"}
