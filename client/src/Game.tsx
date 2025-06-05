@@ -33,20 +33,20 @@ function Game() {
 }
 
 function PointsTable() {
-    const { gameState: {phase, players} } = useGameState();
+    const { gameState: {players, turn} } = useGameState();
     return (
         <table>
             <thead>
                 <tr>
                     <th scope="col">Player</th>
-                    { phase > 0 && <th scope="col">Points</th> }
+                    <th scope="col">Points</th>
                 </tr>
             </thead>
             <tbody>
                 {players.map((player) => (
                     <tr key={player.id}>
-                        <th scope="row">{player.name}</th>
-                        { phase > 0 && <td>{player.points}</td>}
+                        <td>{turn.currentPlayerId === player.id && `\u{1F0CF}`}{player.name}</td>
+                        <td>{player.points}</td>
                     </tr>
                 ))}
             </tbody>

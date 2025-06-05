@@ -4,8 +4,7 @@ import "./Lobby.css";
 function Lobby() {
     const nameInput = useRef<HTMLInputElement | null>(null); 
     const roomIDInput = useRef<HTMLInputElement | null>(null);
-
-    const { createRoom, joinRoom, roomId, startGame, gameState: { players }, reconnectToGame } = useGameState();
+    const { createRoom, joinRoom, roomId, startGame, gameState: { players }, reconnectToGame, leaveRoom } = useGameState();
 
     useEffect(()=>{
         const sessionPlayerId = sessionStorage.getItem("playerID");
@@ -20,9 +19,6 @@ function Lobby() {
             return;
         }
         createRoom(nameInput.current.value);
-    }
-
-    function leaveRoom() {
     }
 
     function handleJoinRoom() {

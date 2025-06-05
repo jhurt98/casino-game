@@ -77,7 +77,7 @@ function useGameStateWithWebsocket() {
         gameStateRef.current = gameState;
     }, [gameState]);
 
-    function wsOnMessage(event) {
+    function wsOnMessage(event: MessageEvent) {
         const message = JSON.parse(event.data);
         if (message.type === "join") {
             const players: Array<Player> = message.data.allPlayers.map((player: Player) =>
@@ -146,7 +146,9 @@ function useGameStateWithWebsocket() {
             });
             socketRef.current = socket;
         } catch (e) {
-            console.log('❌ Join room failed: ' + e.message);
+            if (e instanceof Error) {
+                console.log('❌ Join room failed: ' + e.message);
+            }
         }
     }
 
@@ -162,7 +164,7 @@ function useGameStateWithWebsocket() {
                 console.log(event);
             });
             socket.onopen = ()=>{
-                sessionStorage.setItem("playerId", playerID);
+                sessionStorage.setItem("playerID", playerID);
                 sessionStorage.setItem("roomID", roomID);
                 setRoomId(roomID)
             };
@@ -170,7 +172,9 @@ function useGameStateWithWebsocket() {
             setRoomId(roomId);
             setPlayerId(playerId);
         } catch (e) {
-            console.log('❌ Create room failed: ' + e.message);
+            if (e instanceof Error) {
+                console.log('❌ Create room failed: ' + e.message);
+            }
         }
     }
 
@@ -184,6 +188,17 @@ function useGameStateWithWebsocket() {
          setPlayerId(playerID);
          setRoomId(roomID)
      },[]);
+
+     function leaveRoom() {
+         if (socketRef.current === null) {
+             return;
+         }
+         socketRef.current.close(1000);
+         sessionStorage.clear();
+         setGameState(defaultGameState);
+         setRoomId("");
+         setPlayerId("");
+     }
 
      function startGame() {
          if (socketRef.current === null) {
@@ -417,6 +432,7 @@ function useGameStateWithWebsocket() {
         createRoom: createRoom,
         roomId: roomId,
         reconnectToGame: reconnectToGame,
+        leaveRoom: leaveRoom,
     };
     return value;
 }

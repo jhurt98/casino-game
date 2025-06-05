@@ -28,7 +28,7 @@ type Room struct {
 	id     string
 	engine *game.Engine
 	mu     sync.Mutex
-	conns  map[string]*PlayerConnection
+	playerConns map[string]*PlayerConnection
 	acks   map[string]bool
 	acksMu sync.Mutex
 }
@@ -39,6 +39,7 @@ type PlayerConnection struct {
 	name           string
 	disconnectedAt *time.Time
 	lastMessage    time.Time
+	msgCount       int
 }
 
 func NewServer() *Server {
@@ -77,7 +78,7 @@ func (s *Server) CreateRoom(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprintf(w, "room already exists")
 		return
 	}
-	s.rooms[newRoomID] = &Room{id: newRoomID, conns: make(map[string]*PlayerConnection), engine: game.NewEngine()}
+	s.rooms[newRoomID] = &Room{id: newRoomID, playerConns: make(map[string]*PlayerConnection), engine: game.NewEngine()}
 	s.mu.Unlock()
 	fmt.Fprint(w, newRoomID)
 }
@@ -102,10 +103,10 @@ func (s *Server) JoinRoom(w http.ResponseWriter, r *http.Request) {
 	room.mu.Lock()
 	playerId := generatePlayerID()
 	if playerName == "" {
-		playerName = fmt.Sprintf("Player %v", len(room.conns)+1)
+		playerName = fmt.Sprintf("Player %v", len(room.playerConns)+1)
 	}
-	room.conns[playerId] = &PlayerConnection{name: playerName, id: playerId, disconnectedAt: nil}
-    fmt.Printf("room conns: %+v\n", room.conns)
+	room.playerConns[playerId] = &PlayerConnection{name: playerName, id: playerId, disconnectedAt: nil}
+    fmt.Printf("room.playerConns: %+v\n", room.playerConns)
 	room.mu.Unlock()
 	fmt.Fprint(w, playerId)
 }
@@ -119,13 +120,13 @@ func (s *Server) GameConnect(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "room does not exist", http.StatusNotFound)
 		return
 	}
-	player, playerJoined := room.conns[playerId]
+	playerConn, playerJoined := room.playerConns[playerId]
 	if !playerJoined {
 		http.Error(w, "player is not connected", http.StatusNotFound)
 		return
 	}
 
-	fmt.Printf("connecting %v\n", player.name)
+	fmt.Printf("connecting %v\n", playerConn.name)
 	var upgrader = websocket.Upgrader{
 		ReadBufferSize:  1024,
 		WriteBufferSize: 1024,
@@ -144,6 +145,7 @@ func (s *Server) GameConnect(w http.ResponseWriter, r *http.Request) {
     if !room.HasPlayerInGame(playerId) {
 	    room.handleJoinGame(playerId)
     } else {
+        fmt.Printf("got reconnect message from %v\n", playerConn.name)
         connectMsg := GameMessage {
             Type: "connect",
             Data: json.RawMessage(`{"playerId": "` + playerId + `"}`),
@@ -153,7 +155,7 @@ func (s *Server) GameConnect(w http.ResponseWriter, r *http.Request) {
 		gameMessage := GameMessage{Type: "state", Data: room.engine.GetStateJsonForPlayer(playerId)}
 		response, err := json.Marshal(gameMessage)
 		room.checkError(err, playerId)
-		room.conns[playerId].conn.WriteMessage(websocket.TextMessage, response)
+		playerConn.conn.WriteMessage(websocket.TextMessage, response)
     }
 
 	fmt.Println("opened ws with", r.Header.Get("Origin"))
@@ -161,9 +163,9 @@ func (s *Server) GameConnect(w http.ResponseWriter, r *http.Request) {
 	for {
 		_, message, err := conn.ReadMessage()
 		if err = room.checkError(err, playerId); err != nil {
-            // handle player disconnect: set conn to nil, set disconnectedAt, setTimeout to remove from room.
             t := time.Now()
-            room.conns[playerId].disconnectedAt = &t
+            playerConn.disconnectedAt = &t
+			playerConn.conn = nil
             disconnectMsg := GameMessage {
                 Type: "disconnect",
                 Data: json.RawMessage(`{"playerId": "` + playerId + `"}`),
@@ -171,11 +173,14 @@ func (s *Server) GameConnect(w http.ResponseWriter, r *http.Request) {
             room.Broadcast(websocket.TextMessage, disconnectMsg)
             go func() {
                 time.Sleep(30*time.Second)
+				if playerConn.disconnectedAt != nil && time.Since(*playerConn.disconnectedAt) < 30*time.Second {
+					return
+				}
                 room.mu.Lock()
 	            room.engine.RemovePlayer(playerId)
-	            delete(room.conns, playerId)
+	            delete(room.playerConns, playerId)
                 room.mu.Unlock()
-                if len(room.conns) == 0 {
+                if len(room.playerConns) == 0 {
                     delete(s.rooms,room.id)
                 }
 	            room.BroadcastEngineUpdate("join", websocket.TextMessage, room.engine.GetPlayersJsonForPlayer)
@@ -191,8 +196,8 @@ func (s *Server) GameConnect(w http.ResponseWriter, r *http.Request) {
 
 func (r *Room) SetConnection(playerId string, conn *websocket.Conn) {
     r.mu.Lock()
-    r.conns[playerId].conn = conn
-    r.conns[playerId].disconnectedAt = nil
+    r.playerConns[playerId].conn = conn
+    r.playerConns[playerId].disconnectedAt = nil
     r.mu.Unlock()
 }
 
@@ -201,6 +206,18 @@ func (r *Room) HasPlayerInGame(playerId string) bool {
 }
 
 func (r *Room) HandleMessage(playerId string, msg GameMessage) {
+	playerConn := r.playerConns[playerId]
+	if time.Since(playerConn.lastMessage) < 100*time.Millisecond {
+		playerConn.msgCount++
+		if playerConn.msgCount > 10 {
+			playerConn.conn.Close()
+			delete(r.playerConns, playerId)
+			return
+		}
+	} else {
+		playerConn.msgCount = 0 
+	}
+	playerConn.lastMessage = time.Now()
 	switch msg.Type {
 	case "start":
 		r.handleStart()
@@ -217,8 +234,8 @@ func (r *Room) HandleMessage(playerId string, msg GameMessage) {
 
     func (r *Room) Broadcast(wsMsgType int, gameMsg GameMessage) {
         r.mu.Lock()
-        for pId, pConn := range r.conns {
-            if pConn.disconnectedAt == nil {
+        for pId, pConn := range r.playerConns {
+            if pConn.conn != nil {
                 msg, err := json.Marshal(gameMsg)
                 r.checkError(err, pId)
                 pConn.conn.WriteMessage(wsMsgType, msg)
@@ -229,10 +246,10 @@ func (r *Room) HandleMessage(playerId string, msg GameMessage) {
 
 func (r *Room) BroadcastEngineUpdate(messageViewType string, wsMsgType int, buildMessageView func(playerId string) json.RawMessage) {
 	r.mu.Lock()
-	for playerId, pConn := range r.conns {
+	for playerId, pConn := range r.playerConns {
 		gameMessage := GameMessage{Type: messageViewType, Data: buildMessageView(playerId)}
 		response, err := json.Marshal(gameMessage)
-		fmt.Printf("message response size in bytes: %v\n\n", len(response))
+		//fmt.Printf("message response size in bytes: %v\n\n", len(response))
 		r.checkError(err, playerId)
 		err = pConn.conn.WriteMessage(wsMsgType, response)
 	}
@@ -245,7 +262,7 @@ func (r *Room) handleStart() {
 }
 
 func (r *Room) handleJoinGame(playerId string) {
-	r.engine.AddPlayer(playerId, r.conns[playerId].name)
+	r.engine.AddPlayer(playerId, r.playerConns[playerId].name)
 	r.BroadcastEngineUpdate("join", websocket.TextMessage, r.engine.GetPlayersJsonForPlayer)
 }
 
@@ -280,7 +297,7 @@ func (r *Room) initAcks() {
 	r.acksMu.Lock()
 	defer r.acksMu.Unlock()
 	r.acks = make(map[string]bool)
-	for playerId := range r.conns {
+	for playerId := range r.playerConns {
 		r.acks[playerId] = false
 	}
 }
@@ -296,11 +313,11 @@ func (r *Room) checkAllReady() bool {
 	return ready
 }
 
-func printMessages(messages map[string]json.RawMessage) {
-	for pId, msg := range messages {
-		fmt.Printf("%+v: %+v\n", pId, string(msg))
-	}
-}
+// func printMessages(messages map[string]json.RawMessage) {
+// 	for pId, msg := range messages {
+// 		fmt.Printf("%+v: %+v\n", pId, string(msg))
+// 	}
+// }
 
 func checkOrigin(r *http.Request) bool {
 	origin := r.Header.Get("Origin")
@@ -309,7 +326,7 @@ func checkOrigin(r *http.Request) bool {
 }
 
 func (r *Room) checkError(err error, playerId string) error {
-	conn := r.conns[playerId]
+	conn := r.playerConns[playerId]
 	if err == nil {
 		return nil
 	}
@@ -320,7 +337,7 @@ func (r *Room) checkError(err error, playerId string) error {
 	} else if conn == nil {
 		fmt.Printf("----- failed to upgrade websocket with error: %+v\n", err)
 	}
-	if len(r.conns) == 0 {
+	if len(r.playerConns) == 0 {
 		r.engine.ResetGame()
 	}
 	return err
@@ -338,18 +355,18 @@ func generateRoomID() string {
 	return base64.URLEncoding.EncodeToString(b)
 }
 
-func (r *Room) printConnections() {
-	fmt.Printf("connections %+v\n", r.conns)
-}
-
-func marshalGameMessage(msgType string, data json.RawMessage) []byte {
-	gameMessage := GameMessage{Type: msgType, Data: data}
-	res, err := json.Marshal(gameMessage)
-	if err != nil {
-		fmt.Printf("error calling json.Marshall on %+v\nError message: %+v\n", gameMessage, err)
-	}
-	return res
-}
+// func (r *Room) printConnections() {
+// 	fmt.Printf("connections %+v\n", r.playerConns)
+// }
+//
+// func marshalGameMessage(msgType string, data json.RawMessage) []byte {
+// 	gameMessage := GameMessage{Type: msgType, Data: data}
+// 	res, err := json.Marshal(gameMessage)
+// 	if err != nil {
+// 		fmt.Printf("error calling json.Marshall on %+v\nError message: %+v\n", gameMessage, err)
+// 	}
+// 	return res
+// }
 
 func (server *Server) testHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Access-Control-Allow-Origin", "http://localhost:5173")
