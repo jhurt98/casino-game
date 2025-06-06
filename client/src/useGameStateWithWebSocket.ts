@@ -187,7 +187,7 @@ function useGameStateWithWebsocket() {
     }
 
      const reconnectToGame = useCallback((roomID:string, playerID:string) => {
-         const socket = new WebSocket(`${wsUrl}/gameConnect/${roomID}/${playerID}`);
+         const socket = new WebSocket(`${wsUrl}/gameconnect/${roomID}/${playerID}`);
          socket.onmessage = wsOnMessage; 
          socket.addEventListener("error", (event) => {
              console.log(event);
