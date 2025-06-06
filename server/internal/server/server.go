@@ -214,8 +214,10 @@ func (s *Server) GameConnect(w http.ResponseWriter, r *http.Request) {
             go func() {
                 time.Sleep(30*time.Second)
 				if playerConn.disconnectedAt != nil && time.Since(*playerConn.disconnectedAt) < 30*time.Second {
+					InfoLogger.Println("cancelling player disconnect sideffects")
 					return
 				}
+				InfoLogger.Printf("disconnected sideeffect. disconnected at: %v", playerConn.disconnectedAt)
                 room.mu.Lock()
 	            room.engine.RemovePlayer(playerId)
 	            delete(room.playerConns, playerId)
