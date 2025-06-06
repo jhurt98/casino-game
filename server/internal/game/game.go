@@ -149,8 +149,8 @@ func (e *Engine) ProcessMove(move PlayerMove) {
         for len(e.State.Players[e.State.Turn.turn%len(e.State.Players)].Hand) == 0 {
             e.State.Turn.turn++
         }
-        e.State.Turn.CurrentPlayerId = e.State.Players[(e.State.Turn.turn)%len(e.State.Players)].Id
     }
+    e.State.Turn.CurrentPlayerId = e.State.Players[(e.State.Turn.turn)%len(e.State.Players)].Id
     e.State.Turn.TurnCount++
 	e.State.mu.Unlock()
 }
@@ -260,7 +260,7 @@ func (e *Engine) passToPlayers(ncards int) {
 func (e *Engine) passToTable(ncards int) {
 	table := e.State.Table
 	deck := e.State.Deck
-	for i := 0; i < ncards; i++ {
+	for range ncards {
 		m := len(deck)
 		card := deck[m-1]
 		deck = deck[:m-1]
@@ -382,9 +382,9 @@ func getSpadesCount(p *Player) int {
 	return count
 }
 
-func (cs *CardStack) push(c Card) {
-	cs.Cards = append(cs.Cards, c)
-}
+// func (cs *CardStack) push(c Card) {
+// 	cs.Cards = append(cs.Cards, c)
+// }
 
 func (e *Engine) resetPlayerCards() {
 	for _, p := range e.State.Players {
