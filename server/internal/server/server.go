@@ -90,6 +90,8 @@ func (s *Server) Start() {
 
 func (s *Server) CreateRoom(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Access-Control-Allow-Origin", s.config.allowedOrigins)
+	origin := r.Header.Get("Origin")
+	InfoLogger.Printf("CreateRoom Request from: %v\n", origin)
 	newRoomID := generateRoomID()
 	s.mu.Lock()
 	if _, in := s.rooms[newRoomID]; in {
@@ -106,6 +108,7 @@ func (s *Server) JoinRoom(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Access-Control-Allow-Origin", s.config.allowedOrigins)
 	roomId := r.PathValue("roomId")
 	playerName := r.URL.Query().Get("playerName")
+	InfoLogger.Printf("JoinRoom Request from: %v\n", playerName)
 	if roomId == "" {
 		WarnLogger.Println("Called /join with empty string.")
 		http.Error(w, "Room ID required.", http.StatusBadRequest)
@@ -132,6 +135,7 @@ func (s *Server) GameConnect(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Access-Control-Allow-Origin", s.config.allowedOrigins)
 	roomId := r.PathValue("roomId")
 	playerId := r.PathValue("playerId")
+	InfoLogger.Printf("GameConnect Request from : %v\n", playerId)
 	room, in := s.rooms[roomId]
 	if !in {
 		WarnLogger.Printf("GameConnect: roomId does not exist: %v\n", roomId)
@@ -145,7 +149,7 @@ func (s *Server) GameConnect(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	InfoLogger.Printf("connecting %v\n", playerConn.name)
+	InfoLogger.Printf("connecting %v(%v)\n", playerConn.name, playerConn.id)
 	var upgrader = websocket.Upgrader{
 		ReadBufferSize:  1024,
 		WriteBufferSize: 1024,
@@ -164,20 +168,18 @@ func (s *Server) GameConnect(w http.ResponseWriter, r *http.Request) {
     if !room.HasPlayerInGame(playerId) {
 	    room.handleJoinGame(playerId)
     } else {
-        fmt.Printf("got reconnect message from %v\n", playerConn.name)
+        InfoLogger.Printf("Reconnect message from %v(%v)\n", playerConn.name, playerConn.id)
         connectMsg := GameMessage {
             Type: "connect",
             Data: json.RawMessage(`{"playerId": "` + playerId + `"}`),
         }
         room.Broadcast(websocket.TextMessage, connectMsg)
-
 		gameMessage := GameMessage{Type: "state", Data: room.engine.GetStateJsonForPlayer(playerId)}
 		response, err := json.Marshal(gameMessage)
 		room.checkError(err)
 		playerConn.conn.WriteMessage(websocket.TextMessage, response)
     }
-
-	InfoLogger.Println("Opened ws with", r.Header.Get("Origin"))
+	InfoLogger.Println("Opened ws with", playerConn.name, playerId)
 
 	for {
 		_, message, err := conn.ReadMessage()
@@ -228,8 +230,10 @@ func (r *Room) HasPlayerInGame(playerId string) bool {
 func (r *Room) HandleMessage(playerId string, msg GameMessage) {
 	playerConn := r.playerConns[playerId]
 	if time.Since(playerConn.lastMessage) < 100*time.Millisecond {
+		InfoLogger.Printf("player %v(%v) sending fast msgs\n", playerConn.name, playerConn.id)
 		playerConn.msgCount++
 		if playerConn.msgCount > 10 {
+		    WarnLogger.Printf("player %v(%v) sending too many msgs\n", playerConn.name, playerConn.id)
 			playerConn.conn.Close()
 			delete(r.playerConns, playerId)
 			return
@@ -340,7 +344,6 @@ func (r *Room) checkAllReady() bool {
 
 func (s *Server) checkOrigin(r *http.Request) bool {
 	origin := r.Header.Get("Origin")
-	InfoLogger.Printf("Request from origin: %v\n", origin)
 	return origin == s.config.allowedOrigins
 }
 
