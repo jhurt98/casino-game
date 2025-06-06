@@ -48,9 +48,13 @@ function normalizeCards(data: Array<PlayingCard>, location: string): void {
     });
 }
 
-const hostname = window.location.hostname === 'localhost' ? 'localhost' : '192.168.0.137';
-const apiUrl = `http://${hostname}:8000`;
-const wsUrl = `ws://${hostname}:8000`;
+const host = import.meta.env.VITE_API_HOST;
+const port = import.meta.env.VITE_API_PORT;
+const apiprotocol = import.meta.env.VITE_API_PROTOCOL;
+const wsprotocol = import.meta.env.VITE_WS_PROTOCOL;
+
+const apiUrl = `${apiprotocol}://${host}:${port}`;
+const wsUrl = `${wsprotocol}://${host}:${port}`;
 
 function useGameStateWithWebsocket() {
     const [gameState, setGameState] = useState<GameState>(defaultGameState);

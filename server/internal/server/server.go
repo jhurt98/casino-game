@@ -19,10 +19,16 @@ type GameMessage struct {
 	Data json.RawMessage `json:"data"`
 }
 
+type Config struct {
+	port string
+	allowedOrigins string
+}
+
 type Server struct {
 	router *http.ServeMux
 	rooms  map[string]*Room
 	mu     sync.Mutex
+	config Config
 }
 
 type Room struct {
@@ -50,9 +56,15 @@ var (
 )
 
 func NewServer() *Server {
+	config := Config {
+		port: getEnv("PORT", "8000"),
+		allowedOrigins: getEnv("ALLOWED_ORIGINS", "http://localhost:5173"),
+	}
+
 	return &Server{
 		router: http.NewServeMux(),
 		rooms:  make(map[string]*Room),
+		config: config,
 	}
 }
 
@@ -70,14 +82,14 @@ func (s *Server) Handler() http.Handler {
 func (s *Server) Start() {
 	s.SetupRoutes()
 	InfoLogger.Printf("Server Started\n")
-	err := http.ListenAndServe(":8000", s.Handler())
+	err := http.ListenAndServe(":"+s.config.port, s.Handler())
 	if err != nil {
 		ErrorLogger.Fatalf("Error returned from http.ListenAndServe\nerror: %v\n", err)
 	}
 }
 
 func (s *Server) CreateRoom(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Access-Control-Allow-Origin", "*")
+	w.Header().Set("Access-Control-Allow-Origin", s.config.allowedOrigins)
 	newRoomID := generateRoomID()
 	s.mu.Lock()
 	if _, in := s.rooms[newRoomID]; in {
@@ -91,7 +103,7 @@ func (s *Server) CreateRoom(w http.ResponseWriter, r *http.Request) {
 
 // POST /join/{roomId}/?playerName={playerName}
 func (s *Server) JoinRoom(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Access-Control-Allow-Origin", "*")
+	w.Header().Set("Access-Control-Allow-Origin", s.config.allowedOrigins)
 	roomId := r.PathValue("roomId")
 	playerName := r.URL.Query().Get("playerName")
 	if roomId == "" {
@@ -117,7 +129,7 @@ func (s *Server) JoinRoom(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) GameConnect(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Access-Control-Allow-Origin", "*")
+	w.Header().Set("Access-Control-Allow-Origin", s.config.allowedOrigins)
 	roomId := r.PathValue("roomId")
 	playerId := r.PathValue("playerId")
 	room, in := s.rooms[roomId]
@@ -137,7 +149,7 @@ func (s *Server) GameConnect(w http.ResponseWriter, r *http.Request) {
 	var upgrader = websocket.Upgrader{
 		ReadBufferSize:  1024,
 		WriteBufferSize: 1024,
-		CheckOrigin:     checkOrigin,
+		CheckOrigin:     s.checkOrigin,
 	}
 
 	conn, err := upgrader.Upgrade(w, r, nil)
@@ -326,10 +338,17 @@ func (r *Room) checkAllReady() bool {
 // 	}
 // }
 
-func checkOrigin(r *http.Request) bool {
+func (s *Server) checkOrigin(r *http.Request) bool {
 	origin := r.Header.Get("Origin")
 	InfoLogger.Printf("Request from origin: %v\n", origin)
-	return origin == "http://192.168.0.120:5173" || origin == "http://localhost:5173" || origin == "localhost" || origin == "null" || origin == "http://192.168.0.137:3000"
+	return origin == s.config.allowedOrigins
+}
+
+func getEnv(key, defaultValue string) string {
+	if value := os.Getenv(key); value != "" {
+		return value
+	}
+	return defaultValue
 }
 
 func (r *Room) checkError(err error) error {
