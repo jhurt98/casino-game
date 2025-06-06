@@ -181,6 +181,25 @@ func (s *Server) GameConnect(w http.ResponseWriter, r *http.Request) {
     }
 	InfoLogger.Println("Opened ws with", playerConn.name, playerId)
 
+	conn.SetReadDeadline(time.Now().Add(60*time.Second))
+	conn.SetPongHandler(func(string)error{
+		conn.SetReadDeadline(time.Now().Add(60*time.Second))
+		return nil
+	})
+
+	go func() {
+		ticker := time.NewTicker(30*time.Second)
+		defer ticker.Stop()
+		for {
+			select {
+				case <-ticker.C:
+					if err := conn.WriteMessage(websocket.PingMessage, nil); err!=nil {
+						return
+					}
+			}
+		}
+	}()
+
 	for {
 		_, message, err := conn.ReadMessage()
 		if err = room.checkError(err); err != nil {
@@ -271,6 +290,9 @@ func (r *Room) HandleMessage(playerId string, msg GameMessage) {
 func (r *Room) BroadcastEngineUpdate(messageViewType string, wsMsgType int, buildMessageView func(playerId string) json.RawMessage) {
 	r.mu.Lock()
 	for playerId, pConn := range r.playerConns {
+		if pConn.conn == nil {
+			continue
+		}
 		gameMessage := GameMessage{Type: messageViewType, Data: buildMessageView(playerId)}
 		response, err := json.Marshal(gameMessage)
 		//fmt.Printf("message response size in bytes: %v\n\n", len(response))
