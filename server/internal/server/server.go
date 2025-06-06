@@ -213,7 +213,7 @@ func (s *Server) GameConnect(w http.ResponseWriter, r *http.Request) {
             room.Broadcast(websocket.TextMessage, disconnectMsg)
             go func() {
                 time.Sleep(30*time.Second)
-				if playerConn.disconnectedAt != nil && time.Since(*playerConn.disconnectedAt) < 30*time.Second {
+				if playerConn.disconnectedAt == nil || time.Since(*playerConn.disconnectedAt) < 30*time.Second {
 					InfoLogger.Println("cancelling player disconnect sideffects")
 					return
 				}
