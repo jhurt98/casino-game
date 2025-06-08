@@ -17,6 +17,7 @@ export interface GameStateContextType {
     roomId: string;
     reconnectToGame: (roomID:string, playerID:string)=>void;
     leaveRoom: ()=>void;
+    showToast: boolean;
 }
 
 export const GameStateContext = createContext<GameStateContextType | undefined>(undefined);

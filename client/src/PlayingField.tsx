@@ -5,8 +5,10 @@ import type { PlayingCard, CardStack } from "./types.ts";
 import Card from "./Card.tsx";
 import "./Game.css";
 import { Move } from "./useGameStateWithWebSocket.ts";
+import RulesModal from "./RulesModal.tsx";
 
 function PlayingField() {
+    const [ showRules, setShowRules] = useState<boolean>(false);
     const { gameState, playerId } = useGameState();
     const { showModalPrompt } = useDrag();
 
@@ -20,13 +22,15 @@ function PlayingField() {
     const isPlayersTurn = gameState.turn.currentPlayerId === playerId;
 
     return (
-        <div className="board">
+        <div className="playing-field">
         <Table cardStacks={gameState.table} />
         { showModalPrompt && <MovePromptModal />}
         <div style={{ display: "flex", marginBottom:"96px"}}>
             <Hand hand={playerHand} isPlayersTurn={isPlayersTurn}/>
             <Pile pile={playerPile}/>
         </div>
+        <button className="circular-btn" onClick={()=>{setShowRules(true)}}>&#63;</button>
+        <RulesModal isOpen={showRules} onClose={()=>{setShowRules(false)}} />
         </div>
     );
 }

@@ -84,7 +84,7 @@
     cursor: zoom-in;
 }
 
-.board {
+.playing-field {
     display: flex;
     flex-direction: column;
     justify-content: space-between;
@@ -253,6 +253,26 @@ h1 {
     padding: 0;
 }
 
+.copy-toast {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    background-color: #4CAF50;
+    color: white;
+    padding: 12px 16px;
+    border-radius: 4px;
+    font-size: 14px;
+    z-index: 1000;
+    opacity: 0;
+    transform: translateY(-10px);
+    transition: all 0.3s ease;
+}
+
+.copy-toast.show {
+    opacity: 1;
+    transform: translateY(0);
+}
+
 .lobby {
     display: flex;
     flex-direction: column;
@@ -263,6 +283,8 @@ h1 {
 .lobbyForm {
     display: flex;
     flex-direction: column;
+    width: fit-content;
+    align-items: center;
 }
 
 .lobbyForm input:first-child {
@@ -273,9 +295,13 @@ h1 {
 .lobbyForm input {
     margin-bottom: 8px;
     max-width: 200px;
+    width: 245px;
+    border: solid 0.5px gray;
+    border-radius: 2px;
+    height: 24px;
 }
 
-.lobbyForm button {
+.lobbyForm-btn {
     margin-top: 8px;
     width: 200px;
     align-self: center;
@@ -296,6 +322,26 @@ h1 {
     margin-right: 8px;
 }
 
+.circular-btn {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    border: 2px solid #666;
+    background-color: white;
+    font-size: 18px;
+    font-weight: bold;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    align-self: end;
+}
+
+.circular-btn:hover {
+    background-color: #f0f0f0;
+    transform: scale(1.1);
+}
+
 p {
     margin: 0px;
     font-size: 18px;
@@ -308,4 +354,8 @@ h1 {
 
 h3 {
     font-size: 18px;
+}
+
+input,button {
+    font-family: monospace;
 }

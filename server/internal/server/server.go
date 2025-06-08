@@ -277,17 +277,17 @@ func (r *Room) HandleMessage(playerId string, msg GameMessage) {
 	}
 }
 
-    func (r *Room) Broadcast(wsMsgType int, gameMsg GameMessage) {
-        r.mu.Lock()
-        for _, pConn := range r.playerConns {
-            if pConn.conn != nil {
-                msg, err := json.Marshal(gameMsg)
-                r.checkError(err)
-                pConn.conn.WriteMessage(wsMsgType, msg)
-            }
-        }
-        r.mu.Unlock()
-    }
+func (r *Room) Broadcast(wsMsgType int, gameMsg GameMessage) {
+	r.mu.Lock()
+	for _, pConn := range r.playerConns {
+		if pConn.conn != nil {
+			msg, err := json.Marshal(gameMsg)
+			r.checkError(err)
+			pConn.conn.WriteMessage(wsMsgType, msg)
+		}
+	}
+	r.mu.Unlock()
+}
 
 func (r *Room) BroadcastEngineUpdate(messageViewType string, wsMsgType int, buildMessageView func(playerId string) json.RawMessage) {
 	r.mu.Lock()

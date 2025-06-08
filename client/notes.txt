@@ -1,108 +1,48 @@
-TODO:
-x let players choose a name
-* implement handling disconnects and reconnects
-* consider security issues
-x do a lil more styling  (what exactly idk)
-x implement turn skipping when a player has no cards on the server, right now the player manually has to click a skip turn button
-x add a player table for the lobby to show who's joined
-x don't really need turn count to be displayed?
-x only show points table when game starts
-* show deck as a visible design instead of just count of cards
-* handle deleting game rooms when all players leave 
-x no text selection on cards
-x dont show move modal when there are no plays to make/when hand card is
-  hovering another hand card
-x Aces count as a "1" when sum stacking
+How to Play
+Basic Actions
 
-first to 25 pts
-play rounds
+Drag cards from your hand to make moves
+Take cards by dragging a hand card onto a matching table card/stack
+Create stacks by combining cards of the same rank or cards that sum together
+Toss cards to the table when you can't make any other moves
 
-pts:
-ace: 1
-10d: 3
-2sp: 2
-most cards: 1
-most spades:1
-
-start: 3 cards per player, 3 cards in middle, right of dealer starts
-
-turn:
-pick up a pair, as many matching cards, 
-pick a card to make pair, 
-if you cant pick any cards, you have to play a card:
-    play -> creates new card with sum, if you have the sum card, and its not a pair already, you can combine cards into your play
-    throw -> into table
-
-dealer deals when everyone runs out
-
-final round = dealer doesnt have enough for another one. if it can give everyone an extra card it does
+Each Turn:
 
 
-UI/UX:
+You must use a single card from your hand. You can:
+Take matching cards - Drag a card from your hand onto table cards with the same rank
+Stack for later - Combine your card with table cards to create a stack you'll take later
+Toss - Put a card on the table if you can't do anything else
 
-x drag any cards from hand to table, or from table. 
-x potential matches glow
-x show opponents what card was used to pick up 
-x putting table cards together to show a special combo
-x making play, drag card from hand, make cards glow on hover, give
-  prompt/dialoge
-x when you take cards: drag from hand to table, prompt shows up to pick up.
-x be able to stack and take with existing stacks on table, right now can only do
-  this with sums
-x distinguish from copy stakes and sum stacks
-x multiple copy cards in stack
+Before you use your card, you can make as many setup plays with table cards as possible. Types of setup
+plays are explained below.
 
-x multiple stack and takes in one turn ?
-x when picking up multiple stacks on table, should i make it so that we can drag
-  stacks, or make it so that when a player tries to pick one up, it offers them
-  to pick all of them up?
-x make it so you can stack card stacks 
+Rules
+Game Setup
 
-- no text selection on cards
-- dont show move modal when there are no plays to make/when hand card is
-  hovering another hand card
-- Aces count as a "1" when sum stacking
+Each player starts with 3 cards
+3 cards are dealt to the table
+First to 25 points wins
 
-Server: 
-- implement game rooms
+Scoring
 
-GameEngine
- x processes move
- x sets gameState.Phase = RoundOver... send this back to server ?
+Ace: 1 point
+2 of Spades: 2 points
+10 of Diamonds: 3 points
+Most cards taken: 1 point
+Most spades taken: 1 point
 
-Game Mechanics and Rules (mostly rules, idk what mechanics actually refer to
-tbh):
-some entities:
-- Deck
-- Players have a hand of cards, pile of cards
-- Table
-- Round
+Stacking Rules
+Duplicate Stacks: Cards with the same rank (three 7s, two Kings, etc.)
+Sum Stacks: Cards that add up to a number you have in your hand
 
-at the game start: 
-- deal cards to table, and player, each get 3
+Example: 3 + 4 = 7, and you have a 7 in your hand
 
-each turn:
-- a player must "make a play" with their hand
-- they can make the kinds of stacks i described "sum" or "duplicate"
-  - they can only make these stacks if they have another card in their hand that
-    matches the value of the stack: the summed value or the duplicate value
-  - rule: they can't make a sum stack on top of an existing
-    duplicate stack. they also can't make a duplicate stack on top of an
-    existing sum stack.
-- they can "take" a card or stack from the table with a matching card in their
-  had and pile them
-- if they can't do any of these, they must "toss" a card from their hand into
-  the table
-- in the same turn, the player can also make any number of valid "table moves"
-  - if they have the match in hand, make a "duplicate" stack
-  - if they have the match in hand, make a "sum" stack
-  - these stacks differ from player stacks in that you can create a sum stack
-    with an existing duplicate stack. so if the table has a stack [2,2,2: 2]
-    a card 3, and the player has a 5 in their hand, they can stack 3 on the
-    2 stack.
-  - they will eventually take all of the table moves with a matching card in
-    their hand. 
-  - right now, ive implemented the mechanic so that when a player drags a table
-    card over a potential match, they stack and take in one go, but i didn't
-    consider that they can make any number of these table moves. I'm trying to
-    think of a good way of expressing this mechanic or rule to the player
+Important: You can only create stacks if you have the matching card in your hand to eventually take them.
+You can make any stacks with table cards.
+
+Round Flow
+
+When everyone runs out of cards, the dealer deals 3 more cards to each player
+When the deck runs out, the round ends
+First player to 25 points wins the game

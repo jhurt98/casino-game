@@ -426,12 +426,7 @@ func shuffleCards(cards []Card) []Card {
 }
 
 func cardStackHasCard(cardStack CardStack, card Card) bool {
-	for _, c := range cardStack.Cards {
-		if card == c {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(cardStack.Cards, card)
 }
 
 func deriveNewRank(card Card, cardStack CardStack) string {

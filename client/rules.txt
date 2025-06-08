@@ -1,0 +1,60 @@
+first to 25 pts
+play rounds
+
+pts:
+ace: 1
+10d: 3
+2sp: 2
+most cards: 1
+most spades:1
+
+start: 3 cards per player, 3 cards in middle, right of dealer starts
+
+turn:
+pick up a pair, as many matching cards, 
+pick a card to make pair, 
+if you cant pick any cards, you have to play a card:
+    play -> creates new card with sum, if you have the sum card, and its not a pair already, you can combine cards into your play
+    throw -> into table
+
+dealer deals when everyone runs out
+
+final round = dealer doesnt have enough for another one. if it can give everyone an extra card it does
+
+
+Game Mechanics and Rules (mostly rules, idk what mechanics actually refer to
+tbh):
+some entities:
+- Deck
+- Players have a hand of cards, pile of cards
+- Table
+- Round
+
+at the game start: 
+- deal cards to table, and player, each get 3
+
+each turn:
+- a player must "make a play" with their hand
+- they can make the kinds of stacks i described "sum" or "duplicate"
+  - they can only make these stacks if they have another card in their hand that
+    matches the value of the stack: the summed value or the duplicate value
+  - rule: they can't make a sum stack on top of an existing
+    duplicate stack. they also can't make a duplicate stack on top of an
+    existing sum stack.
+- they can "take" a card or stack from the table with a matching card in their
+  had and pile them
+- if they can't do any of these, they must "toss" a card from their hand into
+  the table
+- in the same turn, the player can also make any number of valid "table moves"
+  - if they have the match in hand, make a "duplicate" stack
+  - if they have the match in hand, make a "sum" stack
+  - these stacks differ from player stacks in that you can create a sum stack
+    with an existing duplicate stack. so if the table has a stack [2,2,2: 2]
+    a card 3, and the player has a 5 in their hand, they can stack 3 on the
+    2 stack.
+  - they will eventually take all of the table moves with a matching card in
+    their hand. 
+  - right now, ive implemented the mechanic so that when a player drags a table
+    card over a potential match, they stack and take in one go, but i didn't
+    consider that they can make any number of these table moves. I'm trying to
+    think of a good way of expressing this mechanic or rule to the player

@@ -61,6 +61,7 @@ function useGameStateWithWebsocket() {
     const [playerId, setPlayerId] = useState<string>("");
     const [tableHistory, setTableHistory] = useState<Array<Array<CardStack>>>([]);
     const [roomId, setRoomId] = useState<string>("");
+    const [showToast, setShowToast] = useState<boolean>(false);
     const gameStateRef = useRef<GameState>(gameState);
     const socketRef = useRef<WebSocket | null>(null);
     const currentPlayer = gameState.players.find((player) => player.id === playerId) || {
@@ -179,6 +180,16 @@ function useGameStateWithWebsocket() {
             socketRef.current = socket;
             setRoomId(roomId);
             setPlayerId(playerId);
+            navigator.clipboard.writeText(roomID)
+              .then(function() {
+                // Success feedback (optional)
+                setShowToast(true);
+                setTimeout(()=>setShowToast(false), 2000);
+              })
+              .catch(function(error) {
+                // Handle potential errors (e.g., user denied permission)
+                console.error("Failed to copy text: ", error);
+              });
         } catch (e) {
             if (e instanceof Error) {
                 console.log('❌ Create room failed: ' + e.message);
@@ -441,6 +452,7 @@ function useGameStateWithWebsocket() {
         roomId: roomId,
         reconnectToGame: reconnectToGame,
         leaveRoom: leaveRoom,
+        showToast: showToast,
     };
     return value;
 }
