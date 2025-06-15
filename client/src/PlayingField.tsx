@@ -10,7 +10,6 @@ import RulesModal from "./RulesModal.tsx";
 function PlayingField() {
     const [ showRules, setShowRules] = useState<boolean>(false);
     const { gameState, playerId } = useGameState();
-    const { showModalPrompt } = useDrag();
 
     const currentPlayer = gameState.players.find((player) => player.id === playerId) || {
         hand: [],
@@ -24,7 +23,7 @@ function PlayingField() {
     return (
         <div className="playing-field">
         <Table cardStacks={gameState.table} />
-        { showModalPrompt && <MovePromptModal />}
+        <MovePromptModal/>
         <div style={{ display: "flex", marginBottom:"96px"}}>
             <Hand hand={playerHand} isPlayersTurn={isPlayersTurn}/>
             <Pile pile={playerPile}/>
@@ -134,7 +133,7 @@ function TableControls() {
 //}
 function MovePromptModal()  {
     const { getPossibleMoves } = useGameState();
-    const { closeModal, draggedCardStack, overlappedCardStack, isTableOverlapped } = useDrag();
+    const { showModalPrompt, closeModal, draggedCardStack, overlappedCardStack, isTableOverlapped } = useDrag();
     const moves = getPossibleMoves(draggedCardStack, overlappedCardStack, isTableOverlapped);
 
     function clickHandler(move: Move) {
@@ -143,8 +142,14 @@ function MovePromptModal()  {
             closeModal();
         }
     }
+
     return (
-            <div className="playModal" style={{ display: "flex" }}>
+        <div className="playModal" style={{
+            visibility: showModalPrompt ? "visible" : "hidden",
+            opacity: showModalPrompt ? 1 : 0,
+            transition: "opacity 0.2s ease",
+            display: "flex"
+        }}>
                 { moves.map(move => <button onClick={clickHandler(move)} key={move.type}>{move.title}</button>) }
                 <button onClick={closeModal} >Close</button>
             </div>
