@@ -23,11 +23,11 @@ function RulesModal({ isOpen, onClose }: RulesModalProps) {
                     </div>
 
                     <div className="rules-tabs">
-                        <button className={`tab-btn ${activeTab === "basics" ? "active" : ""}`} onClick={() => setActiveTab("basics")}>
-                            How to Play
-                        </button>
                         <button className={`tab-btn ${activeTab === "rules" ? "active" : ""}`} onClick={() => setActiveTab("rules")}>
                             Rules
+                        </button>
+                        <button className={`tab-btn ${activeTab === "basics" ? "active" : ""}`} onClick={() => setActiveTab("basics")}>
+                            Mechanics
                         </button>
                     </div>
 
@@ -78,6 +78,8 @@ function RulesModal({ isOpen, onClose }: RulesModalProps) {
                                     <ul>
                                         <li>Each player starts with 3 cards</li>
                                         <li>3 cards are dealt to the table</li>
+                                        <li>Players take turns playing one of their card</li>
+                                        <li>The main goal is to take cards from the table</li>
                                         <li>First to 25 points wins</li>
                                     </ul>
                                 </div>
